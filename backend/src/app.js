@@ -25,13 +25,13 @@ app.use(express.json());
 
 app.use(morgan('dev'));
 
-// -----Routes------
+// ---------Routes-------------
 // Health check: a simple endpoint to confirm the server is running
 // Visit http://localhost:3000/health in your browser to test it
 
 app.get('/health', (req, res) => {
     res.json({
-        status: 'ok',
+        status: 'Ok',
         project: 'FoodBridge',
         team: 'ShareBite',
         timestamp: new Date().toDateString(),
@@ -41,7 +41,7 @@ app.get('/health', (req, res) => {
 
 app.use((req, res) => {
     res.status(404).json({
-        error: 'ROute not found',
+        error: 'Route not found',
         message: `${req.method} ${req.path} does not exist on this server.`
     });
 });
