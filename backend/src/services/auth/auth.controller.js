@@ -89,6 +89,50 @@ class AuthController {
             });
         }
     }
+
+    
+    /**
+     * logout - handle POST /auth/logout
+     * 
+     * Extracts the JWT from the Authorization header and
+     * passes it to AuthService to be blacklisted in Redis.
+     * 
+     * Why POST not DELETE?
+     *  Logout is an action (performing somthing) not deleting a resource.
+     *  POST is HTTP verb for actions.
+     * 
+     * 
+     * @param {Object} req - req.headers.authorization must contain 'Bearer TOKEN'
+     * @param {Object} res
+     */
+
+    async logout(req, res) {
+        try {
+
+            // Extract token from Authorization header
+            const authHeader = req.headers.authorization;
+
+            if (!authHeader || !authHeader.startsWith('Bearer')) {
+                return res.status(400).json({
+                    error: 'No token provided'
+                });
+            }
+
+            const token = authHeader.split(' ')[1];
+
+            await AuthService.logout(token);
+
+            return res.status(200).json({
+                message: 'Logged out successfully.'
+            });
+            
+        } catch (error) {
+            console.error('[AuthController.logout] Unexpected error:', error);
+            return res.status(500).json({
+                error: 'Logout failed. Please try agian.'
+            });
+        }
+    }
 }
 
 

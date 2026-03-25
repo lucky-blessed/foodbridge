@@ -23,7 +23,7 @@ class User {
             'SELECT id, first_name, last_name, email, role, created_at FROM users WHERE id = $1',
             [id] 
         );
-        return result.rows[0];
+        return result.rows[0]; 
     }
 
     // create -> used by AuthService.register
