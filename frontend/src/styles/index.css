@@ -1,9 +1,50 @@
+/*
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+*/
+@import "tailwindcss";
 
-/* You can add custom global transitions here if needed */
-body {
-  @apply antialiased text-slate-900;
-  background-color: #f8fafc; /* Very light gray bg */
+/*
+colors: {
+        // Matches the "FoodBridge" brand identity in your screenshots
+        'fb-dark': '#1B4332',   // Deep Forest Green
+        'fb-mid': '#2D6A4F',    // Mid Green
+        'fb-leaf': '#40916C',   // Leaf Green
+        'fb-coral': '#E76F51',  // Action Orange
+        'fb-mint': '#D8F3DC',   // Light Mint Background
+        'fb-pale': '#F0FAF4',   // Softest Background
+      },
+      fontFamily: {
+        // Based on the 'DM Sans' used in your HTML prototype
+        'sans': ['DM Sans', 'sans-serif'],
+      }
+*/
+
+@theme {
+  --color-fb-coral: #E76F51; /* Replace with your specific coral color code */
+  --color-fb-leaf: #40916C; /* Replace with your color value */
+  --color-fb-mint: #D8F3DC; /* Replace with your color value */
+  --color-fb-dark: #1B4332; /* Replace with your color value */
+  --color-fb-mid: #2D6A4F; /* Replace with your color value */
+  --color-fb-pale: #F0FAF4; /* Replace with your color value */
+}
+
+/* Custom Global Reset */
+@layer base {
+  body {
+    @apply bg-[#F4F7F4] text-slate-900 antialiased;
+    font-family: 'DM Sans', sans-serif;
+  }
+}
+
+/* Custom Components (Optional) */
+@layer components {
+  .btn-primary {
+    @apply bg-fb-coral text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition-all;
+  }
+  
+  .input-field {
+    @apply w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-fb-leaf outline-none bg-white transition-all;
+  }
 }

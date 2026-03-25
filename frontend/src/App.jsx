@@ -1,17 +1,29 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Register from './pages/Register';
 import Discover from './pages/Discover';
-import Dashboard from './pages/Dashboard';
 import PostFood from './pages/PostFood';
+//import ClaimLimit from './pages/ClaimLimit';
+//import Admin from './pages/Admin';
+import Dashboard from './pages/Dashboard';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Register />} />
+        {/* Wireframe 1: Registration */}
+        <Route path="/register" element={<Register />} />
+        
+        {/* Main Application Flow */}
         <Route path="/discover" element={<Discover />} />
-        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/post" element={<PostFood />} />
+        {/* <Route path="/claim-status" element={<ClaimLimit />} /> */}
+        <Route path="/dashboard" element={<Dashboard />} />
+
+        {/* Admin Flow */}
+        {/* <Route path="/admin" element={<Admin />} /> */}
+
+        {/* Default route */}
+        <Route path="/" element={<Navigate to="/register" replace />} />
       </Routes>
     </BrowserRouter>
   );
