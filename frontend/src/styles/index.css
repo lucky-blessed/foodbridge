@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* You can add custom global transitions here if needed */
+body {
+  @apply antialiased text-slate-900;
+  background-color: #f8fafc; /* Very light gray bg */
+}
