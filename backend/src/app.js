@@ -3,6 +3,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 
+const authRoutes = require('./services/auth/auth.routes');
+
 // Create the express application
 const app = express();
 
@@ -28,6 +30,9 @@ app.use(morgan('dev'));
 // ---------Routes-------------
 // Health check: a simple endpoint to confirm the server is running
 // Visit http://localhost:3000/health in your browser to test it
+
+// Mount auth routes at /auth to make /auth/register and /auth/login available
+app.use('/auth', authRoutes);
 
 app.get('/health', (req, res) => {
     res.json({
