@@ -40,11 +40,17 @@ const Register = () => {
           <p className="text-gray-500 mt-2 mb-8">Join FoodBridge and start making a difference today</p>
 
           <form className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div>First Name</div>
+            <div className="grid gap-4">
               <input type="text" placeholder="First Name" className="input-field" />
+            </div>
+            <div>Last Name</div>
+            <div className="grid gap-4">
               <input type="text" placeholder="Last Name" className="input-field" />
             </div>
+            <div>Email Address</div>
             <input type="email" placeholder="Email Address" className="input-field" />
+            <div>Password</div>
             <input type="password" placeholder="Password" className="input-field" />
             
             <p className="text-sm font-bold text-fb-dark pt-2">I want to:</p>
@@ -70,6 +76,9 @@ const Register = () => {
             <button type="submit" className="btn-primary w-full mt-6">
               Create Account →
             </button>
+            <div className="grid place-items-center">
+              Already have an account? <a href="/login" className="text-fb-coral hover:underline">Log in</a>
+            </div>
           </form>
         </div>
       </div>
