@@ -19,7 +19,7 @@ app.use(helmet());
 // send requests to this backend — without this, browsers block it
 
 app.use(cors({
-    origin: process.env.CLIENt_URL || 'http://locahost:5173',
+    origin: process.env.CLIENT_URL || 'http://locahost:5173',
     credentials: true
 }));
 
@@ -39,10 +39,34 @@ app.get('/health', (req, res) => {
         status: 'Ok',
         project: 'FoodBridge',
         team: 'ShareBite',
-        timestamp: new Date().toDateString(),
+        timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development'
     });
 });
+
+// Temporary route test - to be removed later
+// This route tests that the JWT middleware is working correctly.
+// We try it with a valid token, expired token and no token.
+const { authenticateJWT, requireRole } = require('./middleware/auth.middleware');
+
+app.get('/protected-test', authenticateJWT, (req, res) => {
+    res.json({
+        message: 'You are authenticated',
+        userId: req.user.id,
+        role: req.user.role,
+        firstName: req.user.first_name
+    });
+});
+
+app.get('/donor-only-test', authenticateJWT, requireRole('donor'), (req, res) => {
+    res.json({
+        message: 'You are a verified donor',
+        user: req.user.first_name
+    });
+});
+
+// -----End temporary test routes-----
+
 
 app.use((req, res) => {
     res.status(404).json({
