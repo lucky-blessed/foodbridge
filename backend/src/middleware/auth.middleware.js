@@ -140,12 +140,21 @@ const authenticateJWT = async (req, res, next) => {
  * @param {Function} Express middleware function
  */
 
-const requireRole = (...role) => {
+const requireRole = (...roles) => {
     return (req, res, next) => {
-        // req.user was attached by authenticateJWT above
+
+        // First check if user exists
         if (!req.user) {
+            return res.status(401).json({
+                error: 'Access denied. Authentication required.'
+            });
+        }
+        
+
+        // Check if the user's role is in the list of allowed roles
+        if (!roles.includes(req.user.role)) {
             return res.status(403).json({
-                error: `Access denied. This action requires ${role.json(' or ')} role.`,
+                error: `Access denied. This action requires ${roles.join(' or ')} role.`,
                 yourRole: req.user.role
                 // 403 Forbidden - authenticated but not authorised
             });

@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 
 const authRoutes = require('./services/auth/auth.routes');
+const listingRoutes = require('./services/listing/listing.routes');
 
 // Create the express application
 const app = express();
@@ -34,6 +35,8 @@ app.use(morgan('dev'));
 // Mount auth routes at /auth to make /auth/register and /auth/login available
 app.use('/auth', authRoutes);
 
+app.use('/listings', listingRoutes);
+
 app.get('/health', (req, res) => {
     res.json({
         status: 'Ok',
@@ -44,38 +47,12 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Temporary route test - to be removed later
-// This route tests that the JWT middleware is working correctly.
-// We try it with a valid token, expired token and no token.
-const { authenticateJWT, requireRole } = require('./middleware/auth.middleware');
-
-app.get('/protected-test', authenticateJWT, (req, res) => {
-    res.json({
-        message: 'You are authenticated',
-        userId: req.user.id,
-        role: req.user.role,
-        firstName: req.user.first_name
-    });
-});
-
-app.get('/donor-only-test', authenticateJWT, requireRole('donor'), (req, res) => {
-    res.json({
-        message: 'You are a verified donor',
-        user: req.user.first_name
-    });
-});
-
-// -----End temporary test routes-----
-
-
 app.use((req, res) => {
     res.status(404).json({
         error: 'Route not found',
         message: `${req.method} ${req.path} does not exist on this server.`
     });
 });
-
-
 
 
 module.exports = app;
