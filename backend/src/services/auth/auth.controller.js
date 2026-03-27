@@ -19,9 +19,9 @@ class AuthController {
             }
             
 
-            if (password.lenght < 8) {
+            if (password.length < 8) {
                 return res.status(400).json({
-                    error: 'Passward must be at least 8 characters'
+                    error: 'Password must be at least 8 characters'
                 });
             }
 
@@ -98,7 +98,7 @@ class AuthController {
      * passes it to AuthService to be blacklisted in Redis.
      * 
      * Why POST not DELETE?
-     *  Logout is an action (performing somthing) not deleting a resource.
+     *  Logout is an action (performing something) not deleting a resource.
      *  POST is HTTP verb for actions.
      * 
      * 
@@ -112,7 +112,7 @@ class AuthController {
             // Extract token from Authorization header
             const authHeader = req.headers.authorization;
 
-            if (!authHeader || !authHeader.startsWith('Bearer')) {
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
                 return res.status(400).json({
                     error: 'No token provided'
                 });
@@ -129,7 +129,7 @@ class AuthController {
         } catch (error) {
             console.error('[AuthController.logout] Unexpected error:', error);
             return res.status(500).json({
-                error: 'Logout failed. Please try agian.'
+                error: 'Logout failed. Please try again.'
             });
         }
     }
