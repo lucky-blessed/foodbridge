@@ -1,0 +1,154 @@
+/**
+ * claim.controllers.js = Claim Controler
+ * 
+ * Handles HTTP requests and response for the claim service.
+ * Translates ClaimService results and errors into correct HTTP codes.
+ * 
+ * Routes handled:
+ *  POST /claims  -> create()
+ * DELETE /claims/:id -> cancel()
+ * GET /claims/me   -> getMyHistory()
+ * GET /claims/count  -> getRollingCount()
+ * 
+ * 
+ * @author Lucky Nkwor
+ */
+
+const ClaimService = require('./claim.service');
+
+class ClaimController {
+
+
+    /**
+     * create - POST /claims
+     * Protected: recipient only
+     * 
+     * Body: { listingId }
+     */
+
+    async create(req, res) {
+        try {
+            const { listingId } = req.body;
+
+            if (!listingId) {
+                return res.status(400).json({
+                    error: 'listingId is required.'
+                });
+            }
+
+            // Validate MongoDB ObjectId format before hitting the DB
+            if (!listingId.match(/^[0-9a-fA-F]{24}$/)) {
+                return res.status(400).json({
+                    error: 'Invalid listing ID format.'
+                });
+            }
+
+            const result = await ClaimService.create(
+                req.user.id,
+                listingId
+            );
+
+            return res.status(201).json({
+                message: 'Listing claimed successfully.',
+                claim: result.claim,
+                remainingClaims: result.remainingClaims
+            });
+        } catch (error) {
+            // Claim limit reached: return 403 with reset date for the UI
+            if (error.code === 'CLAIM_LIMIT_REACHED') {
+                return res.status(403).json({
+                    error: error.message,
+                    resetsAt: error.resetsAt
+                });
+            }
+
+            if (error.message.includes('not found')) {
+                return res.status(404).json({ error: error.message });
+            }
+
+            if (error.message.includes('no longer available')) {
+                return res.status(409).json({ error: error.message });
+            }
+
+            console.error('[ClaimController.create]', error);
+            return res.status(500).json({ error: 'Failed to create claim. Please try again.' });
+        }
+    }
+
+    /**
+     * cancel: DELETE /claims/:id
+     * Protected: recipient only
+     */
+
+    async cancel(req, res) {
+        try {
+            const result = await ClaimService.cancel(
+                req.params.id,
+                req.user.id
+            );
+
+            return res.status(200).json(result);
+        } catch (error) {
+            
+            if (error.message.includes('not found')) {
+                return res.status(404).json({ error: error.message });
+            }
+
+            
+            if (error.message.includes('your own')) {
+                return res.status(403).json({ error: error.message });
+            }
+
+            if (
+                error.message.includes('Cannot cancel') ||
+                error.message.includes('only allowed')
+            ) {
+                return res.status(400).json({ error: error.message });
+            }
+
+            console.error('[ClaimController.cancel]', error);
+            return res.status(500).json({ error: 'Failed to cancel claim. Please try again.' });     
+        }
+    }
+
+    /**
+     * getMyHistory - GET /claims/me
+     * Protected: recipient only
+     */
+
+    async getMyHistory(req, res) {
+        try {
+            const claims = await ClaimService.getMyHistory(req.user.id);
+
+            return res.status(200).json({
+                count: claims.length,
+                claims
+            });
+            
+        } catch (error) {
+            console.error('[ClaimController.getMyHistory]', error);
+            return res.status(500).json({ error: 'Failed to fetch claim history. Please try again.' });            
+        }
+    }
+
+    /**
+     * getRollingCount - GET /claims/count
+     * Protected: recipient only
+     * Used by ClaimLimit.jsx to render the progress ring
+     */
+
+    async getRollingCount(req, res) {
+        try {
+            const stats = await ClaimService.getRollingCount(req.user.id);
+            
+            return res.status(200).json(stats);
+            
+        } catch (error) {
+            console.error('[ClaimController.getRollingCount]', error);
+            return res.status(500).json({ error: 'Failed to fetch claim count. Please try again.' });
+        }
+    }
+}
+
+
+module.exports = new ClaimController();

@@ -5,6 +5,7 @@ const morgan = require('morgan');
 
 const authRoutes = require('./services/auth/auth.routes');
 const listingRoutes = require('./services/listing/listing.routes');
+const claimRoutes = require('./services/claim/claim.routes');
 
 // Create the express application
 const app = express();
@@ -36,6 +37,8 @@ app.use(morgan('dev'));
 app.use('/auth', authRoutes);
 
 app.use('/listings', listingRoutes);
+
+app.use('/claims', claimRoutes);
 
 app.get('/health', (req, res) => {
     res.json({
