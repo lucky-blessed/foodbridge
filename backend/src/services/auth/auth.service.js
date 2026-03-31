@@ -100,6 +100,36 @@ class AuthService {
 
         return { message: 'Logged out successfully.' }
     }
+
+    /**
+     * getProfile - return the logged-in user's profile
+     * @param {string} userId - from req.user.id
+     */
+
+    async getProfile(userId) {
+        const user = await User.findById(userId);
+        if (!user) {
+            throw new Error('User not found.');
+        }
+        return user;
+    }
+
+    /**
+     * updateProfile - update firstName and lastName only
+     * Email and role are never changed here.
+     * @param {string} userId
+     * @param {Object} fields - { firstName, lastName}
+     */
+    async updateProfile(userId, { firstName, lastName }) {
+        if (!firstName || !lastName) {
+            throw new Error('First name and last name are required.');
+        }
+        const updated = await User.update(userId, { firstName, lastName });
+        if (!updated) {
+            throw new Error('User not found.');
+        }
+        return updated;
+    }
 }
 
 
