@@ -133,6 +133,45 @@ class AuthController {
             });
         }
     }
+
+    /**
+     * getProfile - GET /auth/profile
+     * Protected: any authenticated user
+     */
+    async getProfile(req, res) {
+        try {
+            const user = await AuthService.getProfile(req.user.id);
+            return res.status(200).json({ user });
+        } catch (error) {
+            console.error('[AuthController.getProfile]', error);
+            return res.status(404),json({ error: error.message });
+        }
+    }
+
+    /**
+     * updateProfile - PATH /auth/profile
+     * protected: any authenticated user
+     * Body: { firstName, lastName }
+     */
+
+    async updateProfile(req, res) {
+        try {
+            const { firstName, lastName } = req.body;
+            const user = await AuthService.updateProfile(
+                req.user.id,
+                { firstName, lastName }
+            ); return res.status(200).json({
+                message: 'Profile updated successfully.',
+                user
+            });
+        } catch (error) {
+            if (error.message.includes('required')) {
+                return res.status(400).json({ error: error.message });
+            }
+            console.error('[AuthController.updateProfile]', error);
+            return res.status(500).json({ error: 'Failed to update profile.' })
+        }
+    }
 }
 
 
