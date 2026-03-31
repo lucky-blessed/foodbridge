@@ -19,7 +19,7 @@ class AuthService {
             lastName,
             email: email.toLowerCase().trim(),
             passwordHash,
-            role: role || 'recipicient'
+            role: role || 'recipient'
         });
 
         const token = jwt.sign(
@@ -82,7 +82,7 @@ class AuthService {
 
         // Calculate how many seconds until this token expires
         const now = Math.floor(Date.now() / 1000);
-        const secondsUntilExpiry = decoded.exp = now;
+        const secondsUntilExpiry = decoded.exp - now;
 
         // if the token is already expired, no need to blacklist
         if (secondsUntilExpiry <= 0) {
