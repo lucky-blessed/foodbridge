@@ -32,6 +32,12 @@ class AuthService {
     }
 
     async login({ email, password }) {
+        // Guard against object injection, mongo-sanitize strips operatots
+        // but may leave an empty object {} instead of a string
+        if (typeof email !== 'string' || typeof password !== 'string') {
+            throw new Error('invalid email or password');
+        }
+
         const user = await User.findByEmail(email.toLowerCase().trim());
 
         if (!user) {
@@ -129,6 +135,90 @@ class AuthService {
             throw new Error('User not found.');
         }
         return updated;
+    }
+
+
+    /**
+     * forgotPassword - generate reset token and send email
+     * @param {string} email
+     */
+    async forgotPassword(email) {
+        const user = await User.findByEmail(email.toLowerCase().trim());
+
+        // Always return success even if email not found
+        // Prevents user enumeration, attacker can't tell if email exists
+        if (!user) return { message: 'If that email exists, a reset link has been sent.' };
+
+        // Generate a secure random token
+        const crypto = require('crypto');
+        const token = crypto.randomBytes(32).toString('hex');
+
+        // Store token in DB with 1-hour expiry
+        // Delete any existing token for this user first
+        const { pool } = require('../../config/database');
+        await pool.query(
+            `DELETE FROM password_reset_tokens WHERE user_id = $1`,
+            [user.id]
+        );
+        await pool.query(
+            `INSERT INTO password_reset_tokens (user_id, token, expires_at)
+            VALUES ($1, $2, NOW() + INTERVAL '1 hour')`,
+            [user.id, token]
+        );
+
+        // Send email
+        const EmailService = require('./email.service');
+        await EmailService.sendPasswordReset(user.email, user.first_name, token);
+        return { message: 'If that email exists, a reset link has been sent.' };
+    }
+
+
+    /**
+     * resetPassword - validate token and update password
+     * @param {strin} token
+     * @param {string} newPassword
+     */
+    async resetPassword(token, newPassword) {
+        if (!token || !newPassword) {
+            throw new Error('Token and new password are required.');
+        }
+
+        if (newPassword.length < 8) {
+            throw new Error('Password must be at least 8 characters.');
+        }
+
+        const { pool } = require('../../config/database');
+
+        // Find the token - must be usused and not expired
+        const result = await pool.query(
+            `SELECT * FROM password_reset_tokens
+            WHERE token = $1
+                AND used = FALSE
+                AND expires_at > NOW()`,
+                [token]
+        );
+
+        const resetToken = result.rows[0];
+        if (!resetToken) {
+            throw new Error('Reset link is invalid or has expired.');
+        }
+
+        // Hash the new password
+        const passwordHash = await bcrypt.hash(newPassword, 12);
+
+        // Update the user's password
+        await pool.query(
+            `UPDATE users SET password_hash = $1 WHERE id = $2`,
+            [passwordHash, resetToken.user_id]
+        );
+
+        // Mark token as used so it cannot be reused
+        await pool.query(
+            `UPDATE password_reset_tokens SET used = TRUE WHERE id = $1`,
+            [resetToken.id]
+        );
+
+        return { message: 'Password reset successfully. You can now log in.' };
     }
 }
 

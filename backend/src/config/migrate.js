@@ -25,23 +25,42 @@ const runMigration = async () => {
         .filter(f => f.endsWith('.sql'))
         .sort();
 
-    try {
-        for (const file of files) {
-            const filePath = path.join(migrationsDir, file);
-            const sql = fs.readFileSync(filePath, 'utf8');
+    let failed = 0;
+    for (const file of files) {
+        const filePath = path.join(migrationsDir, file);
+        const sql = fs.readFileSync(filePath, 'utf8');
 
-            console.log(`Running: ${file}`);
+        console.log(`Running: ${file}`);
+
+        try {
             await pool.query(sql);
             console.log(`   - ${file} completed`);
+        } catch (error) {
+            // Skip already-applied migrations, fail on genuinely new errors
+            const ignorable = [
+                'already exists',
+                'does not exist',
+                'duplicate column',
+            ];
+            const isIgnorable = ignorable.some(msg => error.message.includes(msg));
+            if (isIgnorable) {
+                console.log(`   - ${file} skipped (already applied: ${error.message.split('\n')[0]})`);
+            } else {
+                console.error(`Migration failed on ${file}: ${error.message}`);
+                failed++;
+                break;
+            }
         }
-
-        console.log('\nAll migrations completed successfully.');
-    } catch (error) {
-        console.error('Migration failed:', error.message);
-        process.exit(1);
-    } finally {
-        await pool.end();
     }
+
+    if (failed === 0) {
+        console.log('\nAll migrations completed successfully.');
+    } else {
+        console.error('\nMigration stopped due to error.');
+        process.exit(1);
+    }
+
+    await pool.end();
 };
 
 

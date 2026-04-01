@@ -29,4 +29,11 @@ router.patch(
     (req, res) => AuthController.updateProfile(req, res)
 );
 
+// POST /auth/forgot-password - send reset link to email
+router.post('/forgot-password', (req, res) => AuthController.forgotPassword(req, res));
+
+// POST /auth/reset-password - validate token and set new password
+router.post('/reset-password', (req, res) => AuthController.resetPassword(req, res));
+
+
 module.exports = router;

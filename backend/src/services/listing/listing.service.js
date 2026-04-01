@@ -9,6 +9,7 @@
 
 const FoodListing = require('../../models/Listing');
 const cloudinary = require('cloudinary').v2;
+const { pool } = require('../../config/database');
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -176,7 +177,7 @@ class ListingService {
     /**
      * remove : delete a listing
      * 
-     * @param {sting} id : MongoDB Object
+     * @param {string} id : MongoDB Object
      * @param {string} donorId : Must match listing.donorId
      * @throws {Error} If not found oor not owner
      */
@@ -219,6 +220,69 @@ class ListingService {
             }
         );
         return result.modifiedCount;
+    }
+
+    /**
+     * confirmPickup - mark a listing as picked up
+     * 
+     * Rules:
+     *  - Only the recipient who claimed it can confirm pickup
+     *  - Listing must currently be in 'claimed' status 
+     *  - Updates claim_records.picked_up_at + status in PostgresSQL
+     *  - Updates listing status -> 'completed' in MongoDB
+     * 
+     * @param {string} listingId - MongoDB ObjectId
+     * @param {string} recipientId - UUID from req.user.id
+     */
+
+    async confirmPickup(listingId, recipientId) {
+       // const { pool } = require('../../config/database');
+
+        // Find the active claim for this listing and recipient
+        const claimResult = await pool.query(
+            `SELECT * FROM claim_records
+            WHERE listing_id = $1
+                AND recipient_id = $2
+                AND status = 'active'`,
+            [listingId, recipientId]
+        );
+
+        const claim = claimResult.rows[0];
+        if (!claim) {
+            throw new Error('No active claim found for this listing.');
+        }
+
+        // Verify the listing is currently claimed
+        const listing = await FoodListing.findById(listingId);
+        if (!listing) {
+            throw new Error('Listing not found.');
+        }
+        if (listing.status !== 'claimed') {
+            throw new Error(
+                `Cannot confirm pickup. Lisiting status is: ${listing.status}.`
+            );
+        }
+
+        // Update claim record in PostgreSQL
+        await pool.query(
+            `UPDATE claim_records
+            SET status = 'completed',
+                picked_up_at = NOW()
+            WHERE id = $1`,
+            [claim.id]
+        );
+
+        // Update listing status in MongoDB
+        const updated = await FoodListing.findByIdAndUpdate(
+            listingId,
+            { status: 'completed' },
+            { returnDocument: 'after' }
+        );
+
+        return {
+            message: 'Pickup confirm. Thank you for collecting this donation.',
+            listing: updated
+        };
     }
 }
 
