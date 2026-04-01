@@ -32,6 +32,12 @@ class AuthService {
     }
 
     async login({ email, password }) {
+        // Guard against object injection, mongo-sanitize strips operatots
+        // but may leave an empty object {} instead of a string
+        if (typeof email !== 'string' || typeof password !== 'string') {
+            throw new Error('invalid email or password');
+        }
+
         const user = await User.findByEmail(email.toLowerCase().trim());
 
         if (!user) {

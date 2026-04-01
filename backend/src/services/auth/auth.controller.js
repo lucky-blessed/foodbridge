@@ -80,8 +80,8 @@ class AuthController {
             });
             
         } catch (error) {
-            if (error.message.includes('Invalid email or password')) {
-                return res.status(401).json({ error: error.message });
+            if (error.message.toLowerCase().includes('invalid email or password')) {
+                return res.status(401).json({ error: 'Invalid email or password' });
             }
             console.error('Login error:', error);
             return res.status(500).json({
