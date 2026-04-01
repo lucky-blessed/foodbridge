@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { register } from '../services/auth';
+import { registration } from '../services/auth';
 
 const Register = () => {
   const [role, setRole] = useState('donor');
@@ -54,8 +54,9 @@ const Register = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (validate()) {
-      console.log("Form Submitted Successfully", formData, role);
-      // Proceed with API call or Firebase registration
+      //console.log("Form Submitted Successfully", formData, role);
+      // Proceed with API call
+      registration(formData.firstName, formData.lastName, formData.email, formData.password, role);
     }
   };
 
