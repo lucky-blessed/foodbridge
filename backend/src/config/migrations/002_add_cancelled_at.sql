@@ -2,4 +2,4 @@
 -- Required by ClaimService.cancel() and getMyHistory()
 
 ALTER TABLE claim_records
-    ADD COLUMN IF NOT EXISTS canclled_at TIMESTAMPTZ;
+    ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;

@@ -172,6 +172,49 @@ class AuthController {
             return res.status(500).json({ error: 'Failed to update profile.' })
         }
     }
+
+
+    /**
+     * forgotPassword - POST /auth/forgot-password
+     * Public route - no token required
+     * Body: { email }
+     */
+    async forgotPassword(req, res) {
+        try {
+            const { email } = req.body;
+            if (!email) {
+                return res.status(400).json({ error: 'Email is required.' });
+            }
+            const result = await AuthService.forgotPassword(email);
+            return res.status(200).json(result);
+        } catch (error) {
+            console.error('[AuthController.forgotPassword]', error);
+            return res.status(500).json({ error: 'Failed to send reset email. Please try again.' });
+        }
+    }
+
+    /**
+     * resetPassword - POST /auth/reset-password
+     * Public route - token from email link is the auth
+     * Body: { token, newPassword }
+     */
+    async resetPassword(req, res) {
+        try {
+            const { token, newPassword } = req.body;
+            const result = await AuthService.resetPassword(token, newPassword);
+            return res.status(200).json(result);
+        } catch (error) {
+            if (
+                error.message.includes('required') ||
+                error.message.includes('at least 8') ||
+                error.message.includes('invalid or has expired')
+            ) {
+                return res.status(400).json({ error: error.message });
+            }
+            console.error('[AuthController.resetPassword]', error);
+            return res.status(500).json({ error: 'Failed to reset password. Please try again.' });
+        }
+    }
 }
 
 
