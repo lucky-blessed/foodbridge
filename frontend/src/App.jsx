@@ -2,9 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Register from './pages/Register';
 import Discover from './pages/Discover';
 import PostFood from './pages/PostFood';
-//import ClaimLimit from './pages/ClaimLimit';
-//import Admin from './pages/Admin';
+import Admin from './pages/Admin';
 import Dashboard from './pages/Dashboard';
+import ClaimLimit from './pages/ClaimLimit';
 
 function App() {
   return (
@@ -16,11 +16,14 @@ function App() {
         {/* Main Application Flow */}
         <Route path="/discover" element={<Discover />} />
         <Route path="/post" element={<PostFood />} />
-        {/* <Route path="/claim-status" element={<ClaimLimit />} /> */}
+        {/* <Route path="/dashboard" element={<dashboard />} /> */}
         <Route path="/dashboard" element={<Dashboard />} />
 
+        {/* ClaimLimit Flow */}
+        <Route path="/claimlimit" element={<ClaimLimit />} />
+
         {/* Admin Flow */}
-        {/* <Route path="/admin" element={<Admin />} /> */}
+        <Route path="/admin" element={<Admin />} />
 
         {/* Default route */}
         <Route path="/" element={<Navigate to="/register" replace />} />
