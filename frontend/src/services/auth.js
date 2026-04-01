@@ -13,14 +13,15 @@ import api from './api';
  * Calls POST /auth/register
  */
 
-export const register = async ({ firstName, lastName, email, password, role }) => {
+export const registration = async (firstName, lastName, email, password, role) => {
     const response = await api.post('/auth/register', {
         firstName, lastName, email, password, role
     });
     // Store token and user in locatationStorage on success
     localStorage.setItem('token', response.data.token);
-    localStorage.setItem('user', JSON.stringify(response.data.user));
-    return response.data;
+    //localStorage.setItem('user', JSON.stringify(response.data.user));
+    localStorage.setItem('userId', response.data.user.id);
+    //return response.data;
 };
 
 /**
