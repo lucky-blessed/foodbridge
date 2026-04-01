@@ -219,7 +219,42 @@ class ListingController {
             console.error('[ListingController.remove]', error);
             return res.status(500).json({ error: 'Failed to delete listing'});
         }
-    } 
+    }
+    
+
+    /**
+     * confirmPickup - PATCH /listings/:id/confirm
+     * Protected: recipient who claimed this listing only
+     */
+    async confirmPickup(req, res) {
+        try {
+            const { id } = req.params;
+
+            if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+                return res.status(400).json({ error: 'Invalid listing ID format.' });
+            }
+
+            const result = await ListingService.confirmPickup(id, req.user.id);
+            return res.status(200).json(result);
+
+        } catch (error) {
+            if (!error || !error.message) {
+                console.error('[ListingController.confirmPickup] Unknown error');
+                return res.status(500).json({ error: 'Failed to confirm pickup.'});
+            }
+            if (error.message.includes('No active claim')) {
+                return res.status(403).json({ error: error.message });
+            }
+            if (error.message.includes('not found')) {
+                return res.status(404).json({ error: error.message });
+            }
+            if (error.message.includes('Cannot confirm')) {
+                return res.status(400).json({ error: error.message });
+            }
+            console.error('[ListingController.confirmPickup]', error);
+            return res.status(500).json({ error: 'Failed to confirm pickup.' });
+        }
+    }
 }
 
 
