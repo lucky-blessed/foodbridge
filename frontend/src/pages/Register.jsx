@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { register } from '../services/auth';
 
 const Register = () => {
   const [role, setRole] = useState('donor');
@@ -119,7 +120,7 @@ const Register = () => {
             
             <p className="text-sm font-bold text-emerald-900 pt-2">I want to:</p>
             <div className="grid grid-cols-2 gap-4">
-              <button 
+              <button
                 type="button"
                 onClick={() => setRole('donor')}
                 className={`p-5 border-2 rounded-2xl text-left transition-all ${role === 'donor' ? 'border-emerald-500 bg-emerald-50 shadow-md ring-1 ring-emerald-500' : 'border-gray-100 bg-gray-50'}`}
@@ -127,7 +128,7 @@ const Register = () => {
                 <div className="font-bold text-sm text-emerald-900">Donate Food</div>
                 <div className="text-[10px] text-gray-500 leading-tight">Share surplus food with community</div>
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setRole('recipient')}
                 className={`p-5 border-2 rounded-2xl text-left transition-all ${role === 'recipient' ? 'border-emerald-500 bg-emerald-50 shadow-md ring-1 ring-emerald-500' : 'border-gray-100 bg-gray-50'}`}
@@ -144,6 +145,7 @@ const Register = () => {
             <div className="text-sm text-center mt-4">
               Already have an account? <a href="/login" className="text-orange-500 font-bold hover:underline">Log in</a>
             </div>
+
           </form>
         </div>
       </div>
