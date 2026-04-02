@@ -42,17 +42,21 @@ class AuthController {
                 firstName, lastName, email, password, role
             });
 
-            return res.status(201).json({
-                message: 'Account created successfully',
-                token,
-                user
-            });
-
+            if (user !== null && token !== null) {
+                return res.status(201).json({
+                    message: 'Account created successfully',
+                    token,
+                    user
+                });
+            } else {
+                return res.status(409).json({
+                    message: 'Registration failed. Please try again.'
+                });
+            }
         } catch (error) {
             if (error.message.includes('already exists')) {
                 return res.status(409).json({ error: error.message });
             }
-            console.error('Register error', error);
             return res.status(500).json({
                 error: 'Registration failed. Please try again.'
             });
@@ -73,11 +77,17 @@ class AuthController {
 
             const { user, token } = await AuthService.login({ email, password });
 
-            return res.status(200).json({
-                message: 'Login successful',
-                token,
-                user
-            });
+            if (user !== null && token !== null) {
+                return res.status(200).json({
+                    message: 'Login successful',
+                    token,
+                    user
+                });
+            } else {
+                return res.status(400).json({
+                    message: 'Invalid email or password'
+                });
+            }
             
         } catch (error) {
             if (error.message.toLowerCase().includes('invalid email or password')) {
