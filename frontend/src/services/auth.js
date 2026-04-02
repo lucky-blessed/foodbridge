@@ -14,14 +14,26 @@ import api from './api';
  */
 
 export const registration = async (firstName, lastName, email, password, role) => {
-    const response = await api.post('/auth/register', {
-        firstName, lastName, email, password, role
-    });
-    // Store token and user in locatationStorage on success
-    localStorage.setItem('token', response.data.token);
-    //localStorage.setItem('user', JSON.stringify(response.data.user));
-    localStorage.setItem('userId', response.data.user.id);
-    //return response.data;
+    try {
+        const response = await api.post('/auth/register', {
+            firstName, lastName, email, password, role
+        });
+        if (response.status === 201) {
+            // Store token and user in locatationStorage on success
+            localStorage.setItem('token', response.data.token);
+            //localStorage.setItem('user', JSON.stringify(response.data.user));
+            localStorage.setItem('userId', response.data.user.id);
+            alert(response.data.message)
+        }
+    } catch (err) {
+        if (err.response) {
+            console.error('Server Error:', err.response.status, err.response.data);
+        } else if (err.request) {
+            console.error('Network Error: No response from server');
+        } else {
+            console.error('Request Setup Error:', err.message);
+        }
+    }    
 };
 
 /**
@@ -29,11 +41,25 @@ export const registration = async (firstName, lastName, email, password, role) =
  * Calls POST /auth/login
  */
 
-export const login = async ({ email, password }) => {
-    const response = await api.post('/auth/login', { email, password });
-    localStorage.setItem('token', response.data.token);
-    localStorage.setItem('user', JSON.stringify(response.data.user));
-    return response.data;
+export const fakeLogin = async (email, password) => {
+    //const navigate = useNavigate();
+    try {
+        const response = await api.post('/auth/login', { email, password });
+        console.log(response)
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        //return response.data;
+        navigate("/Dashboard");
+    } catch (err) {
+        if (err.response) {
+            console.error('Server Error:', err.response.status, err.response.data);
+        } else if (err.request) {
+            console.error('Network Error: No response from server');
+        }
+        else {
+            console.error('Request Setup Error:', err.message);
+        }
+    }
 };
 
 
