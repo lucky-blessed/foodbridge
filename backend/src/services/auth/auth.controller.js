@@ -57,7 +57,6 @@ class AuthController {
             if (error.message.includes('already exists')) {
                 return res.status(409).json({ error: error.message });
             }
-            console.error('Register error', error);
             return res.status(500).json({
                 error: 'Registration failed. Please try again.'
             });
@@ -85,7 +84,7 @@ class AuthController {
                     user
                 });
             } else {
-                return res.status(401).json({
+                return res.status(400).json({
                     message: 'Invalid email or password'
                 });
             }

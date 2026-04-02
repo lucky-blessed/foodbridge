@@ -46,21 +46,24 @@ const Login = () => {
     setIsLoading(true);
     setLoginError('');
 
-    try {
+   try {
       const response = await api.post('/auth/login', {
         email: formData.email,
         password: formData.password,
       });
+      //const response = {"status": 401, "data": {"token": "fake-jwt-token", "user": {"id": 1, "email": formData.email}}};
 
-      console.log('Login response:', response.data);
+      if (response.status === 200) {
+        console.log('Login successful, token received:', response.data.token);
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
 
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-
-      navigate('/dashboard');
+        navigate('/dashboard');
+      }
     } catch (err) {
       if (err.response) {
-        console.error('Server Error:', err.response.status, err.response.data);
+        console.error('Login failed:', err.response.status);
+        // console.error('Server Error:', err.response.status, err.response.data);
         setLoginError(err.response.data?.message || 'Invalid email or password.');
       } else if (err.request) {
         console.error('Network Error: No response from server');

@@ -29,7 +29,7 @@ function App() {
         <Route path="/admin" element={<Admin />} />
 
         {/* Default route */}
-        {/*<Route path="/" element={<Navigate to="/register" replace />} />*/}
+        {<Route path="/" element={<Navigate to="/register" replace />} />}
       </Routes>
     </BrowserRouter>
   );
