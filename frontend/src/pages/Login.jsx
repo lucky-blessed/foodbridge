@@ -1,15 +1,18 @@
 /**
  * Login.jsx - Login Page
  *
- * Connects to POST /auth/login via auth.js service.
- * On success:
- *  - Stores token and user in localStorage
- *  - Redirects donor    → /post-food
- *  - Redirects recipient → /discover
+ * Connects to POST /auth/login via login() from auth.js service.
  *
- * Matches Register.jsx styling conventions exactly.
+ * On success:
+ *  - token and user are stored in localStorage by auth.js
+ *  - Redirects donor     → /post
+ *  - Redirects recipient → /discover
+ *  - Redirects admin     → /admin
+ *
+ * Styling matches Register.jsx conventions exactly.
  *
  * @author Yi Zhang
+ * @course SWDV 1014 — Red Deer Polytechnic
  */
 
 import React, { useState } from 'react';
@@ -36,13 +39,11 @@ const Login = () => {
     try {
       const data = await login(formData);
 
-      // Store auth data in localStorage
-      //localStorage.setItem('token', data.token);
-      //localStorage.setItem('user',  JSON.stringify(data.user));
-
       // Redirect based on role
       if (data.user.role === 'donor') {
         window.location.href = '/post';
+      } else if (data.user.role === 'admin') {
+        window.location.href = '/admin';
       } else {
         window.location.href = '/discover';
       }
@@ -58,12 +59,14 @@ const Login = () => {
   return (
     <div className="flex min-h-screen bg-white">
 
-      {/* ── Left Column — matches Register.jsx exactly ── */}
+      {/* ── Left Column ── */}
       <div className="hidden lg:flex w-[40%] bg-fb-dark text-white p-16 flex-col justify-between">
         <div>
           <h1 className="text-7xl font-bold leading-tight">Food</h1>
           <h1 className="text-7xl font-bold text-fb-coral leading-tight">Bridge</h1>
-          <p className="mt-4 text-xl opacity-80 font-light">Community Food Sharing Platform</p>
+          <p className="mt-4 text-xl opacity-80 font-light">
+            Community Food Sharing Platform
+          </p>
           <div className="mt-12 space-y-4 max-w-sm">
             {[
               { icon: '🍽️', text: 'Connect donors & recipients' },
@@ -90,6 +93,7 @@ const Login = () => {
       <div className="w-full lg:w-[60%] p-10 md:p-20 flex flex-col justify-center items-center">
         <div className="max-w-md w-full mx-auto">
 
+          {/* Badges */}
           <div className="flex gap-2 mb-8">
             <span className="bg-fb-coral text-white text-[10px] px-3 py-1 rounded font-black uppercase tracking-wider shadow-sm">
               Secure Login

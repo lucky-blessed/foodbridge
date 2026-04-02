@@ -1,36 +1,58 @@
+/**
+ * App.jsx - Root Application Component
+ *
+ * Defines the client-side routing structure for FoodBridge.
+ * Uses React Router v6 BrowserRouter for navigation.
+ *
+ * Route structure:
+ *  /login      → Login page (default entry point)
+ *  /register   → Registration page
+ *  /discover   → Food discovery map (recipients)
+ *  /post       → Post a food donation (donors)
+ *  /dashboard  → Donor activity dashboard
+ *  /claimlimit → Recipient claim allowance tracker
+ *  /admin      → Admin moderation panel
+ *  /           → Redirects to /login
+ *
+ * Auth note:
+ *  Route protection is handled inside each page component.
+ *  If a user is not logged in, the API returns 401 and the
+ *  Axios response interceptor in api.js redirects to /login.
+ *
+ * @author Team ShareBite
+ * @course SWDV 1014 — Red Deer Polytechnic
+ */
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Register from './pages/Register';
-import Login from './pages/Login';
-import Discover from './pages/Discover';
-import PostFood from './pages/PostFood';
-import Admin from './pages/Admin';
-import Dashboard from './pages/Dashboard';
+import Register   from './pages/Register';
+import Login      from './pages/Login';
+import Discover   from './pages/Discover';
+import PostFood   from './pages/PostFood';
+import Admin      from './pages/Admin';
+import Dashboard  from './pages/Dashboard';
 import ClaimLimit from './pages/ClaimLimit';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Wireframe 1: Registration */}
-        <Route path="/register" element={<Register />} />
-        
-        {/**Login route */}
-        <Route path="login" element={<Login />} />
-        
-        {/* Main Application Flow */}
-        <Route path="/discover" element={<Discover />} />
-        <Route path="/post" element={<PostFood />} />
-        {/* <Route path="/dashboard" element={<dashboard />} /> */}
-        <Route path="/dashboard" element={<Dashboard />} />
+        {/* Auth routes */}
+        <Route path="/register"   element={<Register />} />
+        <Route path="/login"      element={<Login />} />
 
-        {/* ClaimLimit Flow */}
+        {/* Recipient flow */}
+        <Route path="/discover"   element={<Discover />} />
         <Route path="/claimlimit" element={<ClaimLimit />} />
 
-        {/* Admin Flow */}
-        <Route path="/admin" element={<Admin />} />
+        {/* Donor flow */}
+        <Route path="/post"       element={<PostFood />} />
+        <Route path="/dashboard"  element={<Dashboard />} />
 
-        {/* Default route */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* Admin flow */}
+        <Route path="/admin"      element={<Admin />} />
+
+        {/* Default — redirect to login */}
+        <Route path="/"           element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
