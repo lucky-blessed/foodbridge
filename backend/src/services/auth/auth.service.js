@@ -5,11 +5,11 @@ const jwt = require('jsonwebtoken');
 const User = require('../../models/User');
 
 class AuthService {
-
     async register({ firstName, lastName, email, password, role }) {
         const existingUser = await User.findByEmail(email);
         if (existingUser) {
-            throw new Error('An account with this email already exists.');
+            //throw new Error('An account with this email already exists.');
+            return {user: null, token: null}
         }
         
         const passwordHash = await bcrypt.hash(password, 12);
@@ -35,18 +35,21 @@ class AuthService {
         // Guard against object injection, mongo-sanitize strips operatots
         // but may leave an empty object {} instead of a string
         if (typeof email !== 'string' || typeof password !== 'string') {
-            throw new Error('invalid email or password');
+            //throw new Error('invalid email or password');
+            return {user: null, token: null};
         }
 
         const user = await User.findByEmail(email.toLowerCase().trim());
 
         if (!user) {
-            throw new Error('Invalid email or password');
+            //throw new Error('Invalid email or password');
+            return {user: null, token: null};
         }
 
         const passwordMatch = await bcrypt.compare(password, user.password_hash);
         if (!passwordMatch) {
-            throw new Error("Invalid email or password");
+            //throw new Error("Invalid email or password");
+            return {user: null, token: null};
         }
 
         const token = jwt.sign(
