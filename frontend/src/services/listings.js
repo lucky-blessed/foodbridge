@@ -14,7 +14,7 @@ export const getNearbyListings = async ({ lat, lng, radius = 5, category = null}
     const params = { lat, lng, radius };
     if (category) params.category = category;
     const response = await api.get('/listings', { params });
-    return response.date;
+    return response.data;
 };
 
 /**

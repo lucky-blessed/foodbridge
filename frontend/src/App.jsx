@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Register from './pages/Register';
+import Login from './pages/Login';
 import Discover from './pages/Discover';
 import PostFood from './pages/PostFood';
 import Admin from './pages/Admin';
@@ -12,6 +13,9 @@ function App() {
       <Routes>
         {/* Wireframe 1: Registration */}
         <Route path="/register" element={<Register />} />
+        
+        {/**Login route */}
+        <Route path="login" element={<Login />} />
         
         {/* Main Application Flow */}
         <Route path="/discover" element={<Discover />} />
@@ -26,7 +30,7 @@ function App() {
         <Route path="/admin" element={<Admin />} />
 
         {/* Default route */}
-        <Route path="/" element={<Navigate to="/register" replace />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
