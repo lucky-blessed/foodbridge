@@ -1,13 +1,3 @@
-/**
- * PostFood.jsx - Post Food Donation Page
- *
- * Connects to POST /listings via createListing() from listings.js
- * Uses FormData because of photo upload (multipart).
- * Redirects to /discover on success.
- *
- * @author Yi Zhang
- */
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createListing } from '../services/listings';

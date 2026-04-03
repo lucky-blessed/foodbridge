@@ -1,20 +1,3 @@
-/**
- * Login.jsx - Login Page
- *
- * Connects to POST /auth/login via login() from auth.js service.
- *
- * On success:
- *  - token and user are stored in localStorage by auth.js
- *  - Redirects donor     → /post
- *  - Redirects recipient → /discover
- *  - Redirects admin     → /admin
- *
- * Styling matches Register.jsx conventions exactly.
- *
- * @author Yi Zhang
- * @course SWDV 1014 — Red Deer Polytechnic
- */
-
 import React, { useState } from 'react';
 import { login } from '../services/auth';
 
