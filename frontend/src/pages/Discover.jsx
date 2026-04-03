@@ -1,13 +1,3 @@
-/**
- * Discover.jsx - Food Discovery Page
- *
- * Fetches real listings from GET /listings via getNearbyListings().
- * Uses browser Geolocation API for user's position.
- * Falls back to Red Deer coordinates if location is denied.
- *
- * @author Yi Zhang
- */
-
 import React, { useState, useEffect } from 'react';
 import { getNearbyListings } from '../services/listings';
 import { claimListing } from '../services/claims';

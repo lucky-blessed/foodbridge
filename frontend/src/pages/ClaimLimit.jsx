@@ -1,15 +1,3 @@
-/**
- * ClaimLimit.jsx - Recipient Claim Status Page
- *
- * Connects to:
- *  - GET /claims/count  → rolling window stats
- *  - GET /claims/me     → claim history enriched with listing data
- *  - DELETE /claims/:id → cancel an active claim
- *
- * @author Yi Zhang
- * @course SWDV 1014 — Red Deer Polytechnic
- */
-
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, Clock, MapPin, AlertTriangle, XCircle } from 'lucide-react';
 import { getClaimCount, getMyClaims, cancelClaim } from '../services/claims';

@@ -1,12 +1,3 @@
-/**
- * Dashboard.jsx - Donor Dashboard
- *
- * Connects to GET /listings/my via getMyListings() from listings.js
- * Shows donor's own listings with status and stats.
- *
- * @author Yi Zhang
- */
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import { getMyListings, deleteListing } from '../services/listings';
