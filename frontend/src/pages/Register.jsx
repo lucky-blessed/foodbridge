@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { registration } from '../services/auth';
+import { register } from '../services/auth';
 
 const Register = () => {
   const [role, setRole] = useState('donor');
@@ -51,14 +51,26 @@ const Register = () => {
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (validate()) {
-      //console.log("Form Submitted Successfully", formData, role);
-      // Proceed with API call
-      registration(formData.firstName, formData.lastName, formData.email, formData.password, role);
+      try {
+        const data = await register(
+          formData.firstName, formData.lastName,
+          formData.email, formData.password, role
+        );
+        // Redirect based on role
+        if (data.user.role === 'donor') {
+          window.location.href = '/post';
+        } else {
+          window.location.href = '/discover';
+        }
+      } catch (err) {
+        const msg = err.response?.data?.error || 'Registration failed. Please try again.';
+        setErrors({ submit: msg });
+      }
     }
-  };
+};
 
   return (
     <div className="flex min-h-screen bg-white font-sans">
@@ -139,6 +151,11 @@ const Register = () => {
               </button>
             </div>
 
+            {errors.submit && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                {errors.submit}
+              </div>
+            )}
             <button type="submit" className="w-full bg-emerald-900 hover:bg-emerald-800 text-white font-bold py-4 rounded-xl mt-6 transition-all shadow-lg flex items-center justify-center gap-2">
               Create Account →
             </button>
