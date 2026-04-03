@@ -61,8 +61,12 @@ const Login = () => {
         navigate('/dashboard');
       }
     } catch (err) {
+      // if (err.response?.status === 400) {
+      //   console.error('Unauthorized: Invalid email or password');
+      // }
       if (err.response) {
         console.error('Login failed:', err.response.status);
+        // console.error(err.request.responseURL, err.config.url);
         // console.error('Server Error:', err.response.status, err.response.data);
         setLoginError(err.response.data?.message || 'Invalid email or password.');
       } else if (err.request) {
