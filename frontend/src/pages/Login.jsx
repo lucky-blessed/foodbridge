@@ -48,6 +48,21 @@ const Login = () => {
         window.location.href = '/discover';
       }
     } catch (err) {
+      // if (err.response?.status === 400) {
+      //   console.error('Unauthorized: Invalid email or password');
+      // }
+      if (err.response) {
+        console.error('Login failed:', err.response.status);
+        // console.error(err.request.responseURL, err.config.url);
+        // console.error('Server Error:', err.response.status, err.response.data);
+        // setLoginError(err.response.data?.message || 'Invalid email or password.');
+      } else if (err.request) {
+        console.error('Network Error: No response from server');
+        setLoginError('Network error. Please check your connection.');
+      } else {
+        console.error('Request Setup Error:', err.message);
+        setLoginError('Something went wrong. Please try again.');
+      }
       setError(
         err.response?.data?.error || 'Invalid email or password. Please try again.'
       );
