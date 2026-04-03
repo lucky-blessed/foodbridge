@@ -149,6 +149,13 @@ const Login = () => {
               />
             </div>
 
+            <div className="text-right">
+              <a href="/forgot-password"
+                className="text-xs text-fb-coral hover:underline">
+                Forgot password?
+              </a>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
