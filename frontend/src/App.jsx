@@ -31,6 +31,9 @@ import PostFood   from './pages/PostFood';
 import Admin      from './pages/Admin';
 import Dashboard  from './pages/Dashboard';
 import ClaimLimit from './pages/ClaimLimit';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword  from './pages/ResetPassword';
+import Profile        from './pages/Profile';
 
 function App() {
   return (
@@ -53,6 +56,16 @@ function App() {
 
         {/* Default — redirect to login */}
         <Route path="/"           element={<Navigate to="/login" replace />} />
+                
+                
+        {/* forgot password flow */}
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+
+        {/**Reset password flow */}
+        <Route path="/reset-password"  element={<ResetPassword />} />
+
+        {/** Profile flow */}
+        <Route path="/profile"         element={<Profile />} />
       </Routes>
     </BrowserRouter>
   );
