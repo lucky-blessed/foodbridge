@@ -30,10 +30,10 @@ router.get('/', (req, res) => ListingController.findNearby(req, res));
 router.get('/my', authenticateJWT, requireRole('donor'),
             (req, res) => ListingController.myListings(req, res));
 
-// PATCH /listings/:id/confirm - recipient confirms pickup
+// PATCH /listings/:id/confirm - donor confirms pickup
 router.patch('/:id/confirm',
     authenticateJWT,
-    requireRole('recipient'),
+    requireRole('donor'),
     (req, res) => ListingController.confirmPickup(req, res)
 );
 

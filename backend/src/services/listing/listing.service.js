@@ -235,52 +235,47 @@ class ListingService {
      * @param {string} recipientId - UUID from req.user.id
      */
 
-    async confirmPickup(listingId, recipientId) {
-       // const { pool } = require('../../config/database');
-
-        // Find the active claim for this listing and recipient
-        const claimResult = await pool.query(
-            `SELECT * FROM claim_records
-            WHERE listing_id = $1
-                AND recipient_id = $2
-                AND status = 'active'`,
-            [listingId, recipientId]
-        );
-
-        const claim = claimResult.rows[0];
-        if (!claim) {
-            throw new Error('No active claim found for this listing.');
-        }
-
-        // Verify the listing is currently claimed
+    async confirmPickup(listingId, donorId) {
+        // Verify listing exists and belongs to this donor (FR-15)
         const listing = await FoodListing.findById(listingId);
         if (!listing) {
             throw new Error('Listing not found.');
         }
+        if (listing.donorId !== donorId) {
+            throw new Error('You can only confirm pickup for your own listings.');
+        }
         if (listing.status !== 'claimed') {
             throw new Error(
-                `Cannot confirm pickup. Lisiting status is: ${listing.status}.`
+                `Cannot confirm pickup. Listing status is: ${listing.status}.`
             );
         }
-
+        // Find the active claim for this listing
+        const claimResult = await pool.query(
+            `SELECT * FROM claim_records
+             WHERE listing_id = $1
+               AND status = 'active'`,
+            [listingId]
+        );
+        const claim = claimResult.rows[0];
+        if (!claim) {
+            throw new Error('No active claim found for this listing.');
+        }
         // Update claim record in PostgreSQL
         await pool.query(
             `UPDATE claim_records
-            SET status = 'completed',
-                picked_up_at = NOW()
-            WHERE id = $1`,
+             SET status       = 'completed',
+                 picked_up_at = NOW()
+             WHERE id = $1`,
             [claim.id]
         );
-
         // Update listing status in MongoDB
         const updated = await FoodListing.findByIdAndUpdate(
             listingId,
             { status: 'completed' },
             { returnDocument: 'after' }
         );
-
         return {
-            message: 'Pickup confirm. Thank you for collecting this donation.',
+            message: 'Pickup confirmed. Thank you for completing this donation.',
             listing: updated
         };
     }
