@@ -9,6 +9,7 @@ const hpp = require('hpp');
 const authRoutes = require('./services/auth/auth.routes');
 const listingRoutes = require('./services/listing/listing.routes');
 const claimRoutes = require('./services/claim/claim.routes');
+const adminRoutes = require('./services/admin/admin.routes');
 
 // Create the express application
 const app = express();
@@ -99,6 +100,8 @@ app.use('/listings', listingRoutes);
 
 app.use('/claims', claimRoutes);
 
+app.use('/admin', adminRoutes);
+
 app.get('/health', (req, res) => {
     res.json({
         status: 'Ok',
@@ -117,6 +120,8 @@ app.use((req, res) => {
         message: `${req.method} ${req.path} does not exist on this server.`
     });
 });
+
+
 
 
 module.exports = app;
