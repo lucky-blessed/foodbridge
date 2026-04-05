@@ -1,198 +1,488 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  LayoutDashboard, List, Users, Flag, FileText, Settings, 
-  Search, Plus, Download, Eye, Trash2 
+/**
+ * Admin.jsx - Admin Moderation Panel
+ *
+ * Connects to:
+ *  GET    /admin/stats                  → platform stats
+ *  GET    /admin/listings               → all listings paginated
+ *  PATCH  /admin/listings/:id/flag      → hide a listing
+ *  PATCH  /admin/listings/:id/restore   → restore a listing
+ *  DELETE /admin/listings/:id           → hard delete
+ *  GET    /admin/users                  → all users
+ *  PATCH  /admin/users/:id/deactivate   → deactivate user
+ *  PATCH  /admin/users/:id/activate     → activate user
+ *  GET    /admin/reports/distribution   → claims per recipient
+ *  GET    /admin/audit-log              → recent admin actions
+ *
+ * @author Yi Zhang
+ * @course SWDV 1014 — Red Deer Polytechnic
+ */
+
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  LayoutDashboard, List, Users, Flag,
+  FileText, Search, Trash2, RefreshCw
 } from 'lucide-react';
+import api from '../services/api';
+import Sidebar from '../components/Sidebar';
 
-const AdminModerationPage = () => {
-  // --- State ---
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [listings, setListings] = useState([
-    { id: 1, title: 'Spam: "Free Cash"', donor: 'unknown', category: '—', posted: 'Today 2:14 PM', status: 'Flagged' },
-    { id: 2, title: 'Sourdough Bread × 20', donor: 'Lucky Nkwor', category: 'Baked', posted: 'Today 8:00 AM', status: 'Active' },
-    { id: 3, title: 'Fresh Pasta × 5', donor: 'Kartic Bavoria', category: 'Meals', posted: 'Yesterday', status: 'Active' },
-    { id: 4, title: 'Veggie Box 2kg', donor: 'Upashana Khanal', category: 'Produce', posted: 'Yesterday', status: 'Active' },
-    { id: 5, title: 'Canned Goods Bundle', donor: 'Yi Zhang', category: 'Non-perish', posted: 'Mar 19', status: 'Active' },
-  ]);
+const Admin = () => {
+  const [activeTab,   setActiveTab]   = useState('listings');
+  const [stats,       setStats]       = useState(null);
+  const [listings,    setListings]    = useState([]);
+  const [users,       setUsers]       = useState([]);
+  const [report,      setReport]      = useState([]);
+  const [auditLog,    setAuditLog]    = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState('');
+  const [searchTerm,  setSearchTerm]  = useState('');
+  const [statusFilter,setStatusFilter]= useState('');
+  const [actioningId, setActioningId] = useState(null);
 
-  // --- Logic ---
+  useEffect(() => {
+    fetchAll();
+  }, []);
+
+  const fetchAll = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [statsRes, listingsRes, usersRes, reportRes, auditRes] = await Promise.all([
+        api.get('/admin/stats'),
+        api.get('/admin/listings?limit=50'),
+        api.get('/admin/users?limit=50'),
+        api.get('/admin/reports/distribution'),
+        api.get('/admin/audit-log?limit=20'),
+      ]);
+      setStats(statsRes.data);
+      setListings(listingsRes.data.listings || []);
+      setUsers(usersRes.data.users || []);
+      setReport(reportRes.data.report || []);
+      setAuditLog(auditRes.data.log || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load admin data.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Listing actions ───────────────────────────────
+  const handleFlag = async (id) => {
+    const reason = window.prompt('Reason for flagging (optional):');
+    if (reason === null) return; // cancelled
+    setActioningId(id);
+    try {
+      await api.patch(`/admin/listings/${id}/flag`, { reason });
+      setListings(prev => prev.map(l =>
+        l._id === id ? { ...l, status: 'hidden' } : l
+      ));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to flag listing.');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  const handleRestore = async (id) => {
+    setActioningId(id);
+    try {
+      await api.patch(`/admin/listings/${id}/restore`);
+      setListings(prev => prev.map(l =>
+        l._id === id ? { ...l, status: 'available' } : l
+      ));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to restore listing.');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  const handleDeleteListing = async (id) => {
+    if (!window.confirm('Permanently delete this listing? This cannot be undone.')) return;
+    setActioningId(id);
+    try {
+      await api.delete(`/admin/listings/${id}`);
+      setListings(prev => prev.filter(l => l._id !== id));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete listing.');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  // ── User actions ──────────────────────────────────
+  const handleDeactivate = async (id) => {
+    const reason = window.prompt('Reason for deactivation (optional):');
+    if (reason === null) return;
+    setActioningId(id);
+    try {
+      await api.patch(`/admin/users/${id}/deactivate`, { reason });
+      setUsers(prev => prev.map(u =>
+        u.id === id ? { ...u, is_active: false } : u
+      ));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to deactivate user.');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  const handleActivate = async (id) => {
+    setActioningId(id);
+    try {
+      await api.patch(`/admin/users/${id}/activate`);
+      setUsers(prev => prev.map(u =>
+        u.id === id ? { ...u, is_active: true } : u
+      ));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to activate user.');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  // ── Filtered listings ─────────────────────────────
   const filteredListings = useMemo(() => {
-    return listings.filter(item => 
-      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.donor.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [searchTerm, listings]);
+    return listings.filter(l => {
+      const matchSearch = !searchTerm ||
+        l.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        l.donorName?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchStatus = !statusFilter || l.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [listings, searchTerm, statusFilter]);
 
-  const toggleSelect = (id) => {
-    setSelectedIds(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
+  const statusColor = {
+    available: 'text-emerald-600',
+    claimed:   'text-blue-600',
+    completed: 'text-gray-500',
+    expired:   'text-orange-500',
+    hidden:    'text-red-600',
   };
 
-  const handleDelete = (id) => {
-    setListings(prev => prev.filter(item => item.id !== id));
-  };
-
-  // --- Component Parts ---
-  const StatCard = ({ label, value, icon: Icon, colorClass }) => (
-    <div className="bg-white p-6 rounded-xl border border-slate-200 flex-1 min-w-[200px]">
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-4 ${colorClass}`}>
-        <Icon size={20} />
-      </div>
-      <p className="text-3xl font-bold text-slate-800">{value}</p>
-      <p className="text-sm text-slate-500 font-medium">{label}</p>
-    </div>
-  );
+  const tabs = [
+    { id: 'listings', label: 'Listings',     icon: List },
+    { id: 'users',    label: 'Users',        icon: Users },
+    { id: 'reports',  label: 'Distribution', icon: FileText },
+    { id: 'audit',    label: 'Audit Log',    icon: Flag },
+  ];
 
   return (
-    <div className="flex min-h-screen bg-[#1a332a] text-slate-200 font-sans">
-      
-      {/* Sidebar */}
-      <aside className="w-64 p-6 space-y-2">
-        <div className="text-orange-500 text-2xl font-black mb-10 px-4">FoodBridge</div>
-        {[
-          { icon: LayoutDashboard, label: 'Dashboard' },
-          { icon: List, label: 'All Listings', active: true },
-          { icon: Users, label: 'Users' },
-          { icon: Flag, label: 'Flagged (3)' },
-          { icon: FileText, label: 'Reports' },
-          { icon: Settings, label: 'Settings' },
-        ].map((item) => (
-          <button 
-            key={item.label}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-colors ${item.active ? 'bg-[#325a4a] text-white' : 'text-slate-400 hover:bg-[#254236]'}`}
-          >
-            <item.icon size={18} /> {item.label}
-          </button>
-        ))}
-      </aside>
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar />
 
-      {/* Main Content */}
-      <main className="flex-1 bg-slate-50 rounded-tl-3xl p-10 text-slate-900 overflow-y-auto">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-[#1a332a]">Listing Moderation</h1>
-          <p className="text-slate-500">Review, flag, and manage all food donation listings</p>
+      <main className="flex-1 p-10 overflow-y-auto">
+
+        {/* Header */}
+        <header className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-fb-dark">Admin Panel</h1>
+            <p className="text-gray-500">Moderation, user management and platform reports</p>
+          </div>
+          <button onClick={fetchAll}
+            className="flex items-center gap-2 border border-fb-dark text-fb-dark px-4 py-2 rounded-xl text-sm font-semibold hover:bg-fb-dark hover:text-white transition-colors">
+            <RefreshCw size={14} /> Refresh
+          </button>
         </header>
 
-        {/* Stats Row */}
-        <div className="flex flex-wrap gap-6 mb-8">
-          <StatCard label="Total Listings" value="247" icon={List} colorClass="bg-emerald-100 text-emerald-700" />
-          <StatCard label="Active" value="239" icon={CheckCircle} colorClass="bg-emerald-100 text-emerald-700" />
-          <StatCard label="Flagged" value="3" icon={Flag} colorClass="bg-red-100 text-red-600" />
-          <StatCard label="Active Users" value="89" icon={Users} colorClass="bg-emerald-100 text-emerald-700" />
-        </div>
-
-        {/* Table Controls */}
-        <div className="bg-white p-4 rounded-t-xl border border-slate-200 border-b-0 flex flex-wrap gap-3 items-center">
-          <div className="relative flex-1 min-w-[300px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input 
-              type="text" 
-              placeholder="Search listings..." 
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        {error && (
+          <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            {error}
           </div>
-          <select className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold">
-            <option>Status: All</option>
-          </select>
-          <select className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold">
-            <option>Date: Today</option>
-          </select>
-          <select className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold">
-            <option>Category: All</option>
-          </select>
-          <button className="ml-auto flex items-center gap-2 border-2 border-[#1a332a] text-[#1a332a] px-4 py-2 rounded-full font-bold text-sm hover:bg-slate-50 transition-colors">
-            <Plus size={16} /> Bulk Action
-          </button>
-        </div>
+        )}
 
-        {/* Table */}
-        <div className="bg-white border border-slate-200 overflow-hidden shadow-sm">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="bg-[#1a332a] text-white uppercase text-[11px] tracking-wider">
-                <th className="p-4 w-12"><input type="checkbox" className="accent-emerald-500" /></th>
-                <th className="p-4 font-semibold">Listing Title</th>
-                <th className="p-4 font-semibold">Donor</th>
-                <th className="p-4 font-semibold">Category</th>
-                <th className="p-4 font-semibold">Posted</th>
-                <th className="p-4 font-semibold">Status</th>
-                <th className="p-4 font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredListings.map((item) => (
-                <tr key={item.id} className={`${item.status === 'Flagged' ? 'bg-orange-50/50' : 'hover:bg-slate-50'}`}>
-                  <td className="p-4">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedIds.includes(item.id)} 
-                      onChange={() => toggleSelect(item.id)}
-                      className="accent-emerald-500"
-                    />
-                  </td>
-                  <td className="p-4 font-bold text-slate-700">{item.title}</td>
-                  <td className="p-4 text-slate-600">{item.donor}</td>
-                  <td className="p-4 text-slate-600">{item.category}</td>
-                  <td className="p-4 text-slate-500 text-xs">{item.posted}</td>
-                  <td className="p-4">
-                    <span className={`flex items-center gap-1 font-bold text-[11px] uppercase ${item.status === 'Flagged' ? 'text-orange-600' : 'text-emerald-600'}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${item.status === 'Flagged' ? 'bg-orange-600' : 'bg-emerald-600'}`} />
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="p-4 flex gap-2">
-                    {item.status === 'Flagged' ? (
-                      <button onClick={() => handleDelete(item.id)} className="bg-red-500 text-white px-3 py-1 rounded-lg font-bold text-xs">Del</button>
-                    ) : (
-                      <button className="border border-slate-300 px-3 py-1 rounded-lg font-bold text-xs text-slate-600 hover:bg-slate-50">Flag</button>
-                    )}
-                    <button className="border border-[#1a332a] text-[#1a332a] px-3 py-1 rounded-lg font-bold text-xs hover:bg-slate-50 flex items-center gap-1">
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Claim Distribution Report */}
-        <section className="mt-8 bg-white border border-slate-200 rounded-xl p-8">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-[#1a332a]">Claim Distribution Report — This Week</h3>
-            <button className="flex items-center gap-2 border-2 border-[#1a332a] text-[#1a332a] px-4 py-1.5 rounded-lg font-bold text-xs">
-              Export CSV
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Stats */}
+        {stats && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {[
-              { name: 'Yi Zhang', val: '3/3', width: '100%' },
-              { name: 'Lucky Nkwor', val: '2/3', width: '66%' },
-              { name: 'Kartic Bavoria', val: '2/3', width: '66%' },
-              { name: 'Upashana Khanal', val: '1/3', width: '33%' },
-            ].map((report) => (
-              <div key={report.name} className="text-center">
-                <p className="text-[10px] font-bold text-slate-400 mb-2">{report.name}</p>
-                <div className="bg-slate-100 h-14 w-full rounded relative overflow-hidden flex items-end">
-                   <div className="bg-[#1a332a] w-full transition-all duration-700" style={{ height: report.width }} />
-                </div>
-                <p className="text-[10px] font-bold text-slate-500 mt-2">{report.val}</p>
+              { label: 'Total Listings', value: stats.listings?.total       || 0, color: 'bg-emerald-50 text-emerald-700' },
+              { label: 'Available',      value: stats.listings?.available   || 0, color: 'bg-green-50 text-green-700'    },
+              { label: 'Hidden',         value: stats.listings?.hidden      || 0, color: 'bg-red-50 text-red-700'        },
+              { label: 'Total Users',    value: stats.users?.total_users    || 0, color: 'bg-blue-50 text-blue-700'      },
+              { label: 'Donors',         value: stats.users?.donors         || 0, color: 'bg-emerald-50 text-emerald-700'},
+              { label: 'Recipients',     value: stats.users?.recipients     || 0, color: 'bg-blue-50 text-blue-700'      },
+              { label: 'Total Claims',   value: stats.claims?.total_claims  || 0, color: 'bg-purple-50 text-purple-700'  },
+              { label: 'Completed',      value: stats.claims?.completed     || 0, color: 'bg-gray-50 text-gray-700'      },
+            ].map((s, i) => (
+              <div key={i} className={`p-4 rounded-xl border ${s.color} border-current border-opacity-20`}>
+                <p className="text-2xl font-black">{s.value}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider opacity-70 mt-1">{s.label}</p>
               </div>
             ))}
           </div>
-        </section>
+        )}
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 border-b border-gray-200">
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <button key={id} onClick={() => setActiveTab(id)}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+                activeTab === id
+                  ? 'border-fb-dark text-fb-dark'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
+              }`}>
+              <Icon size={14} /> {label}
+            </button>
+          ))}
+        </div>
+
+        {loading && (
+          <div className="text-center text-gray-400 mt-20">Loading admin data...</div>
+        )}
+
+        {/* ── LISTINGS TAB ── */}
+        {!loading && activeTab === 'listings' && (
+          <>
+            {/* Controls */}
+            <div className="flex gap-3 mb-4 flex-wrap">
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                <input type="text" placeholder="Search listings..."
+                  value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fb-dark" />
+              </div>
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                <option value="">All Statuses</option>
+                <option value="available">Available</option>
+                <option value="claimed">Claimed</option>
+                <option value="completed">Completed</option>
+                <option value="expired">Expired</option>
+                <option value="hidden">Hidden</option>
+              </select>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="bg-fb-dark text-white text-xs uppercase">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Title</th>
+                    <th className="px-4 py-3 text-left">Donor</th>
+                    <th className="px-4 py-3 text-left">Category</th>
+                    <th className="px-4 py-3 text-left">Posted</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredListings.map((l) => (
+                    <tr key={l._id} className={l.status === 'hidden' ? 'bg-red-50' : 'hover:bg-gray-50'}>
+                      <td className="px-4 py-3 font-medium text-fb-dark max-w-[200px] truncate">
+                        {l.title}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{l.donorName}</td>
+                      <td className="px-4 py-3 text-gray-500 capitalize">{l.category}</td>
+                      <td className="px-4 py-3 text-gray-400 text-xs">
+                        {new Date(l.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs font-bold uppercase ${statusColor[l.status] || 'text-gray-500'}`}>
+                          {l.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          {l.status !== 'hidden' ? (
+                            <button onClick={() => handleFlag(l._id)}
+                              disabled={actioningId === l._id}
+                              className="text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded-lg font-semibold hover:bg-orange-200 disabled:opacity-50">
+                              Flag
+                            </button>
+                          ) : (
+                            <button onClick={() => handleRestore(l._id)}
+                              disabled={actioningId === l._id}
+                              className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-lg font-semibold hover:bg-green-200 disabled:opacity-50">
+                              Restore
+                            </button>
+                          )}
+                          <button onClick={() => handleDeleteListing(l._id)}
+                            disabled={actioningId === l._id}
+                            className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-lg font-semibold hover:bg-red-200 disabled:opacity-50">
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredListings.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-10 text-center text-gray-400 italic">
+                        No listings found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {/* ── USERS TAB ── */}
+        {!loading && activeTab === 'users' && (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <table className="w-full text-sm">
+              <thead className="bg-fb-dark text-white text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-3 text-left">Name</th>
+                  <th className="px-4 py-3 text-left">Email</th>
+                  <th className="px-4 py-3 text-left">Role</th>
+                  <th className="px-4 py-3 text-left">Joined</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {users.map((u) => (
+                  <tr key={u.id} className={!u.is_active ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'}>
+                    <td className="px-4 py-3 font-medium text-fb-dark">
+                      {u.first_name} {u.last_name}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{u.email}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-bold uppercase px-2 py-1 rounded-full ${
+                        u.role === 'admin'     ? 'bg-blue-100 text-blue-700'    :
+                        u.role === 'donor'     ? 'bg-green-100 text-green-700'  :
+                        'bg-orange-100 text-orange-700'
+                      }`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-400 text-xs">
+                      {new Date(u.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-bold ${u.is_active ? 'text-green-600' : 'text-red-500'}`}>
+                        {u.is_active ? 'Active' : 'Deactivated'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {u.role !== 'admin' && (
+                        u.is_active ? (
+                          <button onClick={() => handleDeactivate(u.id)}
+                            disabled={actioningId === u.id}
+                            className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-lg font-semibold hover:bg-red-200 disabled:opacity-50">
+                            Deactivate
+                          </button>
+                        ) : (
+                          <button onClick={() => handleActivate(u.id)}
+                            disabled={actioningId === u.id}
+                            className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-lg font-semibold hover:bg-green-200 disabled:opacity-50">
+                            Activate
+                          </button>
+                        )
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ── DISTRIBUTION REPORT TAB ── */}
+        {!loading && activeTab === 'reports' && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="p-6 border-b">
+              <h3 className="font-bold text-fb-dark">Claim Distribution Report</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Total claims per recipient — rolling 7-day fair distribution
+              </p>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                <tr>
+                  <th className="px-6 py-3 text-left">Recipient</th>
+                  <th className="px-6 py-3 text-left">Email</th>
+                  <th className="px-6 py-3 text-left">Total</th>
+                  <th className="px-6 py-3 text-left">Active</th>
+                  <th className="px-6 py-3 text-left">Completed</th>
+                  <th className="px-6 py-3 text-left">Cancelled</th>
+                  <th className="px-6 py-3 text-left">Last Claim</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {report.map((r) => (
+                  <tr key={r.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium text-fb-dark">
+                      {r.first_name} {r.last_name}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">{r.email}</td>
+                    <td className="px-6 py-4 font-bold text-fb-dark">{r.total_claims}</td>
+                    <td className="px-6 py-4 text-green-600">{r.active_claims}</td>
+                    <td className="px-6 py-4 text-blue-600">{r.completed_claims}</td>
+                    <td className="px-6 py-4 text-gray-400">{r.cancelled_claims}</td>
+                    <td className="px-6 py-4 text-gray-400 text-xs">
+                      {r.last_claim_at
+                        ? new Date(r.last_claim_at).toLocaleDateString()
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+                {report.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-10 text-center text-gray-400 italic">
+                      No recipient data yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ── AUDIT LOG TAB ── */}
+        {!loading && activeTab === 'audit' && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="p-6 border-b">
+              <h3 className="font-bold text-fb-dark">Audit Log</h3>
+              <p className="text-sm text-gray-500 mt-1">Recent admin actions</p>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                <tr>
+                  <th className="px-6 py-3 text-left">Admin</th>
+                  <th className="px-6 py-3 text-left">Action</th>
+                  <th className="px-6 py-3 text-left">Target ID</th>
+                  <th className="px-6 py-3 text-left">Reason</th>
+                  <th className="px-6 py-3 text-left">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {auditLog.map((entry) => (
+                  <tr key={entry.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium text-fb-dark">
+                      {entry.first_name} {entry.last_name}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-xs font-bold bg-fb-dark text-white px-2 py-1 rounded">
+                        {entry.action}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-400 text-xs font-mono truncate max-w-[120px]">
+                      {entry.target_id}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500 italic">
+                      {entry.reason || '—'}
+                    </td>
+                    <td className="px-6 py-4 text-gray-400 text-xs">
+                      {new Date(entry.created_at).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+                {auditLog.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-gray-400 italic">
+                      No admin actions yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
       </main>
     </div>
   );
 };
 
-// Helper for the icon in StatCard
-const CheckCircle = ({ size }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-);
-
-export default AdminModerationPage;
+export default Admin;
