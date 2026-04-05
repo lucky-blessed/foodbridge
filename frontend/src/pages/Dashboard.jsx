@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
-import { getMyListings, deleteListing } from '../services/listings';
+import { getMyListings, deleteListing, confirmPickup } from '../services/listings';
 import { getCurrentUser } from '../services/auth';
 
 const Dashboard = () => {
@@ -33,6 +33,18 @@ const Dashboard = () => {
       setListings(prev => prev.filter(l => l._id !== id));
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to delete listing.');
+    }
+  };
+
+  const handleConfirmPickup = async (id) => {
+    if (!window.confirm('Confirm that the recipient has picked up this donation?')) return;
+    try {
+      await confirmPickup(id);
+      setListings(prev => prev.map(l =>
+        l._id === id ? { ...l, status: 'completed' } : l
+      ));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to confirm pickup.');
     }
   };
 
@@ -135,12 +147,19 @@ const Dashboard = () => {
                         {listing.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 flex gap-3">
                       {listing.status === 'available' && (
                         <button
                           onClick={() => handleDelete(listing._id)}
                           className="text-red-500 hover:text-red-700 text-xs font-semibold">
                           Delete
+                        </button>
+                      )}
+                      {listing.status === 'claimed' && (
+                        <button
+                          onClick={() => handleConfirmPickup(listing._id)}
+                          className="text-green-600 hover:text-green-800 text-xs font-semibold">
+                          Confirm Pickup
                         </button>
                       )}
                     </td>
