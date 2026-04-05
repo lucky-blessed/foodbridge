@@ -24,7 +24,7 @@ const Login = () => {
 
       // Redirect based on role
       if (data.user.role === 'donor') {
-        window.location.href = '/post';
+        window.location.href = '/dashboard';
       } else if (data.user.role === 'admin') {
         window.location.href = '/admin';
       } else {

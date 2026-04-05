@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createListing } from '../services/listings';
+import Sidebar from '../components/Sidebar';
 
 const PostFood = () => {
   const navigate = useNavigate();
@@ -70,8 +71,7 @@ const PostFood = () => {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar Placeholder */}
-      <div className="w-64 bg-fb-dark" />
-
+      <Sidebar />
       <main className="flex-1 p-10 bg-fb-bg">
         {/* Header */}
         <header className="mb-10 flex items-center justify-between">
