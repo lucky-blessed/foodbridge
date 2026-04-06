@@ -13,8 +13,6 @@
  *  GET    /admin/reports/distribution   → claims per recipient
  *  GET    /admin/audit-log              → recent admin actions
  *
- * @author Yi Zhang
- * @course SWDV 1014 — Red Deer Polytechnic
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
