@@ -10,8 +10,6 @@
  *  - Radius slider replaced with 4 discrete buttons (1/5/10/25 km) — FR-09
  *  - Category filter dropdown added — FR-10
  *
- * @author Yi Zhang
- * @course SWDV 1014 — Red Deer Polytechnic
  */
 
 import React, { useState, useEffect } from 'react';
