@@ -18,9 +18,10 @@ class ListingController {
         try {
             const {
                 title, category, quantity, unit,
-                condition, value, description,
+                condition, description,
                 lat, lng, address,
-                pickupStart, pickupEnd
+                pickupStart, pickupEnd,
+                expiryDate, estimatedValue, allergens
             } = req.body;
 
             // Validate required field
@@ -56,8 +57,11 @@ class ListingController {
                 quantity: Number(quantity),
                 unit,
                 condition,
-                value: parseFloat(value).toFixed(2) || 0.00,
+                
                 description,
+                expiryDate: expiryDate ? new Date(expiryDate) : null,
+                estimatedValue: estimatedValue ? Number(estimatedValue) : 0,
+                allergens: allergens || '',
                 location: {
                     type: 'Point',
                     coordinates: [parseFloat(lng), parseFloat(lat)],
