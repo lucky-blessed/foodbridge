@@ -120,52 +120,97 @@ const Discover = () => {
           <span className="text-4xl">🍽️</span>
         </div>
       )}
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h4 className="font-bold text-fb-dark text-sm leading-tight">
-            {item.title}
-          </h4>
-          <span className="text-[10px] bg-fb-mint text-fb-dark px-2 py-0.5
-                           rounded-full font-semibold capitalize flex-shrink-0">
-            {item.category}
-          </span>
-        </div>
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-2">
+            <h4 className="font-bold text-fb-dark text-sm leading-tight">
+              {item.title}
+            </h4>
+            <span className="text-[10px] bg-fb-mint text-fb-dark px-2 py-0.5
+                              rounded-full font-semibold capitalize flex-shrink-0">
+              {item.category}
+            </span>
+          </div>
 
-        <p className="text-xs text-gray-500 mt-1">
-          👤 {item.donorName}
-        </p>
+          {/* Donor + condition */}
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-xs text-gray-500">👤 {item.donorName}</p>
+            {item.condition && (
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize
+                ${item.condition === 'fresh'    ? 'bg-green-100 text-green-700' :
+                  item.condition === 'good'     ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-red-100 text-red-700'}`}>
+                {item.condition}
+              </span>
+            )}
+          </div>
 
-        {/* Address — visible to recipient */}
-        {item.location?.address && (
-          <p className="text-xs text-gray-600 mt-1 flex items-start gap-1">
-            <span className="flex-shrink-0">📍</span>
-            <span>{item.location.address}</span>
-          </p>
-        )}
+          {/* Quantity */}
+          {item.quantity && (
+            <p className="text-xs text-gray-500 mt-1">
+              📦 {item.quantity} {item.unit}
+            </p>
+          )}
 
-        {/* Coordinates as fallback if no address stored */}
-        {!item.location?.address && item.location && (
+          {/* Expiry date */}
+          {item.expiryDate && (
+            <p className={`text-xs font-medium mt-1 ${
+              new Date(item.expiryDate) < new Date()
+                ? 'text-red-500'
+                : new Date(item.expiryDate) - new Date() < 86400000 * 2
+                ? 'text-orange-500'
+                : 'text-gray-500'
+            }`}>
+              📅 Expires: {new Date(item.expiryDate).toLocaleDateString()}
+              {new Date(item.expiryDate) < new Date() && ' — Expired'}
+              {new Date(item.expiryDate) - new Date() < 86400000 * 2 &&
+                new Date(item.expiryDate) >= new Date() && ' — Expiring soon!'}
+            </p>
+          )}
+
+          {/* Estimated value */}
+          {item.estimatedValue > 0 && (
+            <p className="text-xs text-green-700 font-medium mt-1">
+              💰 Est. value: ${item.estimatedValue.toFixed(2)} CAD
+            </p>
+          )}
+
+          {/* Allergens */}
+          {item.allergens && (
+            <p className="text-xs text-red-500 mt-1">
+              ⚠️ Allergens: {item.allergens}
+            </p>
+          )}
+
+          {/* Address */}
+          {item.location?.address && (
+            <p className="text-xs text-gray-600 mt-1 flex items-start gap-1">
+              <span className="flex-shrink-0">📍</span>
+              <span>{item.location.address}</span>
+            </p>
+          )}
+          {!item.location?.address && item.location && (
+            <p className="text-xs text-gray-400 mt-1">
+              📍 {item.location.coordinates[1].toFixed(4)},
+              {item.location.coordinates[0].toFixed(4)}
+            </p>
+          )}
+
+          {/* Pickup window */}
           <p className="text-xs text-gray-400 mt-1">
-            📍 {item.location.coordinates[1].toFixed(4)},
-            {item.location.coordinates[0].toFixed(4)}
+            🕐 Pickup:{' '}
+            {new Date(item.pickupStart).toLocaleDateString([], {
+              month: 'short', day: 'numeric'
+            })}{' '}
+            {new Date(item.pickupStart).toLocaleTimeString([], {
+              hour: '2-digit', minute: '2-digit'
+            })}
+            {' – '}
+            {new Date(item.pickupEnd).toLocaleTimeString([], {
+              hour: '2-digit', minute: '2-digit'
+            })}
           </p>
-        )}
 
-        <p className="text-xs text-gray-400 mt-1">
-          🕐 Pickup:{' '}
-          {new Date(item.pickupStart).toLocaleDateString([], {
-            month: 'short', day: 'numeric'
-          })}{' '}
-          {new Date(item.pickupStart).toLocaleTimeString([], {
-            hour: '2-digit', minute: '2-digit'
-          })}
-          {' – '}
-          {new Date(item.pickupEnd).toLocaleTimeString([], {
-            hour: '2-digit', minute: '2-digit'
-          })}
-        </p>
-
-        <button
+          <button
           onClick={() => handleClaim(item._id)}
           disabled={claiming === item._id}
           className="w-full mt-3 bg-white border-2 border-fb-coral text-fb-coral
