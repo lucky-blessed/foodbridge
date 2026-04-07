@@ -136,15 +136,15 @@ const Discover = () => {
         </p>
 
         {/* Address — visible to recipient */}
-        {item.address && (
+        {item.location?.address && (
           <p className="text-xs text-gray-600 mt-1 flex items-start gap-1">
             <span className="flex-shrink-0">📍</span>
-            <span>{item.address}</span>
+            <span>{item.location.address}</span>
           </p>
         )}
 
         {/* Coordinates as fallback if no address stored */}
-        {!item.address && item.location && (
+        {!item.location?.address && item.location && (
           <p className="text-xs text-gray-400 mt-1">
             📍 {item.location.coordinates[1].toFixed(4)},
             {item.location.coordinates[0].toFixed(4)}
@@ -405,9 +405,9 @@ const Discover = () => {
                         <p className="text-xs text-gray-500 capitalize mt-1">
                           👤 {selected.donorName} · {selected.category}
                         </p>
-                        {selected.address && (
+                        {selected.location?.address && (
                           <p className="text-xs text-gray-600 mt-1">
-                            📍 {selected.address}
+                            📍 {selected.location.address}
                           </p>
                         )}
                         <p className="text-xs text-gray-400 mt-1">
