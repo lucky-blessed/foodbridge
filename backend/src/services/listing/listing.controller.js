@@ -18,7 +18,7 @@ class ListingController {
         try {
             const {
                 title, category, quantity, unit,
-                condition, description,
+                condition, value, description,
                 lat, lng, address,
                 pickupStart, pickupEnd
             } = req.body;
@@ -56,6 +56,7 @@ class ListingController {
                 quantity: Number(quantity),
                 unit,
                 condition,
+                value: parseFloat(value).toFixed(2) || 0.00,
                 description,
                 location: {
                     type: 'Point',
