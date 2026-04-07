@@ -18,16 +18,16 @@ class ListingController {
         try {
             const {
                 title, category, quantity, unit,
-                condition, value, description,
+                condition, expiresAt, value, description,
                 lat, lng, address,
                 pickupStart, pickupEnd
             } = req.body;
 
             // Validate required field
-            if (!title || !category || !quantity || !unit) {
+            if (!title || !category || !quantity || !unit || !expiresAt) {
                 return res.status(400).json({
                     error: 'Missing required fields',
-                    required: ['title', 'category', 'quantity', 'unit']
+                    required: ['title', 'category', 'quantity', 'unit', 'expiresAt']
                 });
             }
 
@@ -56,6 +56,7 @@ class ListingController {
                 quantity: Number(quantity),
                 unit,
                 condition,
+                expiresAt : new Date(expiresAt),
                 value: parseFloat(value).toFixed(2) || 0.00,
                 description,
                 location: {

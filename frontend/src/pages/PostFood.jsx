@@ -6,8 +6,6 @@
  * Address input with Google Places Autocomplete — converts address to lat/lng.
  * Redirects to /dashboard on success.
  *
- * @author Yi Zhang
- * @course SWDV 1014 — Red Deer Polytechnic
  */
 
 import React, { useState, useRef } from 'react';
@@ -34,6 +32,7 @@ const PostFood = () => {
     quantity:    '',
     unit:        '',
     condition:   'fresh',
+    expiresAt:   '',
     value:       '',
     description: '',
     address:     '',
@@ -83,8 +82,8 @@ const PostFood = () => {
     e.preventDefault();
     setError('');
 
-    if (!formData.title || !formData.quantity || !formData.unit || !formData.condition) {
-      setError('Title, quantity, unit and condition are required.');
+    if (!formData.title || !formData.quantity || !formData.unit || !formData.condition || !formData.expiresAt) {
+      setError('Title, quantity, unit, condition and expiration date are required.');
       return;
     }
     if (!formData.lat || !formData.lng) {
@@ -231,6 +230,19 @@ const PostFood = () => {
                   <option value="good">Good</option>
                   <option value="use-soon">Use Soon</option>
                 </select>
+              </div>
+
+            {/* expiration Date */}
+              <div>
+                <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
+                  Expiration Date *
+                </label>
+                <input
+                    type="datetime-local" name="expiresAt" value={formData.expiresAt}
+                    onChange={handleChange}
+                    className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
+                    required
+                  />
               </div>
 
               {/* values ($) */}

@@ -55,6 +55,11 @@ const FoodListingSchema = new mongoose.Schema(
             default: 'fresh'
         },
 
+        expiresAt: {
+            type: Date,
+            required: [true, 'Expiration data is required']
+        },
+
         value: {
             type: Number,
             min: [0, 'Value cannot be negative'],

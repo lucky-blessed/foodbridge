@@ -4,8 +4,6 @@
  * Used by Dashboard and other donor/admin pages.
  * Handles navigation and logout via auth.js service.
  *
- * @author Yi Zhang
- * @course SWDV 1014 — Red Deer Polytechnic
  */
 
 import React from 'react';
