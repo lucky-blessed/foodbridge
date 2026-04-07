@@ -7,8 +7,6 @@
  * New fields: expiryDate, estimatedValue, allergens
  * Redirects to /dashboard on success.
  *
- * @author Yi Zhang
- * @course SWDV 1014 — Red Deer Polytechnic
  */
 
 import React, { useState, useRef } from 'react';
@@ -265,20 +263,6 @@ const PostFood = () => {
                 <p className="text-xs text-gray-400 mt-1">
                   Comma-separated list of allergens present
                 </p>
-              </div>
-
-              {/* values ($) */}
-              <div>
-                <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
-                  Value ($) (optional)
-                </label>
-                <input
-                  type="number" name="value" value={formData.value}
-                  onChange={handleChange} placeholder="e.g., 10.00"
-                  className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
-                  step="0.01"
-                  min="0"
-                />
               </div>
 
               {/* Description */}
