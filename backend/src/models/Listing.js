@@ -55,11 +55,6 @@ const FoodListingSchema = new mongoose.Schema(
             default: 'fresh'
         },
 
-        expiresAt: {
-            type: Date,
-            required: [true, 'Expiration data is required']
-        },
-
         value: {
             type: Number,
             min: [0, 'Value cannot be negative'],
@@ -70,6 +65,31 @@ const FoodListingSchema = new mongoose.Schema(
             type: String,
             trim: true,
             maxlength: [500, 'Description cannot exceed 500 characters']
+        },
+
+        // --Expiry Date---------
+        // Best-before or expiry date of the food item
+        // Helps recipients judge urgency
+        expiryDate: {
+            type: Date,
+            default: null
+        },
+
+        // -----Estimated Value (CAD)------
+        // Donor's estimate of the manetary value of the donation
+        // Used for tax receipt generation
+        estimatedValue: {
+            type: Number,
+            min: [0, 'value cannot be negative'],
+            default: null
+        },
+
+        // ---allergens------
+        // Comma-separated allergens present in the food
+        allergens: {
+            type: String,
+            trim: true,
+            default: ''
         },
 
         // --Photo-----------

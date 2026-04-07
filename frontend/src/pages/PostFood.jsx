@@ -4,6 +4,7 @@
  * Connects to POST /listings via createListing() from listings.js
  * Uses FormData because of photo upload (multipart).
  * Address input with Google Places Autocomplete — converts address to lat/lng.
+ * New fields: expiryDate, estimatedValue, allergens
  * Redirects to /dashboard on success.
  *
  */
@@ -27,27 +28,26 @@ const PostFood = () => {
   const autocompleteRef = useRef(null);
 
   const [formData, setFormData] = useState({
-    title:       '',
-    category:    'baked',
-    quantity:    '',
-    unit:        '',
-    condition:   'fresh',
-    expiresAt:   '',
-    value:       '',
-    description: '',
-    address:     '',
-    lat:         '',
-    lng:         '',
-    pickupStart: '',
-    pickupEnd:   '',
+    title:          '',
+    category:       'baked',
+    quantity:       '',
+    unit:           '',
+    condition:      'fresh',
+    description:    '',
+    expiryDate:     '',
+    estimatedValue: '',
+    allergens:      '',
+    address:        '',
+    lat:            '',
+    lng:            '',
+    pickupStart:    '',
+    pickupEnd:      '',
   });
 
   const [photoFile,  setPhotoFile]  = useState(null);
   const [preview,    setPreview]    = useState(null);
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState('');
-
-  const steps = ['Food Details', 'Pickup Location', 'Schedule', 'Review & Post'];
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -61,7 +61,6 @@ const PostFood = () => {
     }
   };
 
-  // Called when donor selects an address from the autocomplete dropdown
   const handlePlaceSelect = () => {
     if (autocompleteRef.current) {
       const place = autocompleteRef.current.getPlace();
@@ -82,8 +81,8 @@ const PostFood = () => {
     e.preventDefault();
     setError('');
 
-    if (!formData.title || !formData.quantity || !formData.unit || !formData.condition || !formData.expiresAt) {
-      setError('Title, quantity, unit, condition and expiration date are required.');
+    if (!formData.title || !formData.quantity || !formData.unit || !formData.condition) {
+      setError('Title, quantity, unit and condition are required.');
       return;
     }
     if (!formData.lat || !formData.lng) {
@@ -125,23 +124,6 @@ const PostFood = () => {
           <p className="text-gray-500">Share surplus food with your community in minutes</p>
         </header>
 
-        {/* Step Tracker */}
-        <div className="flex items-center gap-4 mb-8 text-sm font-semibold bg-white
-                        p-4 rounded-2xl shadow-sm border border-gray-100">
-          {steps.map((step, i) => (
-            <React.Fragment key={step}>
-              <div className={`flex items-center gap-2 ${i > 0 ? 'text-gray-400' : 'text-fb-leaf'}`}>
-                <span className={`w-7 h-7 rounded-full flex items-center justify-center
-                                  font-bold text-xs ${i > 0 ? 'bg-gray-100' : 'bg-fb-leaf text-white'}`}>
-                  {i + 1}
-                </span>
-                {step}
-              </div>
-              {i < steps.length - 1 && <div className="h-0.5 w-12 bg-gray-100" />}
-            </React.Fragment>
-          ))}
-        </div>
-
         {/* Error */}
         {error && (
           <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700
@@ -153,9 +135,13 @@ const PostFood = () => {
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-            {/* Left — Form */}
+            {/* ── Left — Form ── */}
             <div className="space-y-5 bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-              <h3 className="font-bold text-fb-dark text-lg">Food Information</h3>
+
+              {/* ── SECTION: Food Details ── */}
+              <h3 className="font-bold text-fb-dark text-lg border-b pb-2">
+                Food Details
+              </h3>
 
               {/* Title */}
               <div>
@@ -165,29 +151,45 @@ const PostFood = () => {
                 <input
                   type="text" name="title" value={formData.title}
                   onChange={handleChange}
-                  placeholder="e.g., Sourdough Bread — 20 loaves"
+                  placeholder="e.g., Sourdough Bread — 5 loaves"
                   className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
                   required
                 />
               </div>
 
-              {/* Category */}
-              <div>
-                <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
-                  Category *
-                </label>
-                <select
-                  name="category" value={formData.category}
-                  onChange={handleChange}
-                  className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
-                >
-                  <option value="baked">Baked Goods</option>
-                  <option value="produce">Produce</option>
-                  <option value="meals">Meals</option>
-                  <option value="dairy">Dairy</option>
-                  <option value="non-perishable">Non-Perishable</option>
-                  <option value="other">Other</option>
-                </select>
+              {/* Category + Condition */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
+                    Category *
+                  </label>
+                  <select
+                    name="category" value={formData.category}
+                    onChange={handleChange}
+                    className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
+                  >
+                    <option value="baked">Baked Goods</option>
+                    <option value="produce">Produce</option>
+                    <option value="meals">Meals</option>
+                    <option value="dairy">Dairy</option>
+                    <option value="non-perishable">Non-Perishable</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
+                    Condition *
+                  </label>
+                  <select
+                    name="condition" value={formData.condition}
+                    onChange={handleChange}
+                    className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
+                  >
+                    <option value="fresh">Fresh</option>
+                    <option value="good">Good</option>
+                    <option value="use-soon">Use Soon</option>
+                  </select>
+                </div>
               </div>
 
               {/* Quantity + Unit */}
@@ -198,7 +200,7 @@ const PostFood = () => {
                   </label>
                   <input
                     type="number" name="quantity" value={formData.quantity}
-                    onChange={handleChange} placeholder="e.g., 20"
+                    onChange={handleChange} placeholder="e.g., 5"
                     className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
                     required
                   />
@@ -209,40 +211,58 @@ const PostFood = () => {
                   </label>
                   <input
                     type="text" name="unit" value={formData.unit}
-                    onChange={handleChange} placeholder="e.g., loaves"
+                    onChange={handleChange} placeholder="e.g., loaves, kg, bowls"
                     className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
                     required
                   />
                 </div>
               </div>
 
-              {/* Condition */}
-              <div>
-                <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
-                  Condition *
-                </label>
-                <select
-                  name="condition" value={formData.condition}
-                  onChange={handleChange}
-                  className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
-                >
-                  <option value="fresh">Fresh</option>
-                  <option value="good">Good</option>
-                  <option value="use-soon">Use Soon</option>
-                </select>
-              </div>
-
-            {/* expiration Date */}
-              <div>
-                <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
-                  Expiration Date *
-                </label>
-                <input
-                    type="datetime-local" name="expiresAt" value={formData.expiresAt}
+              {/* Expiry Date + Estimated Value */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
+                    Expiry / Best Before
+                  </label>
+                  <input
+                    type="date" name="expiryDate" value={formData.expiryDate}
                     onChange={handleChange}
                     className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
-                    required
                   />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Helps recipients judge freshness
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
+                    Estimated Value (CAD $)
+                  </label>
+                  <input
+                    type="number" name="estimatedValue" value={formData.estimatedValue}
+                    onChange={handleChange} placeholder="e.g., 25.00"
+                    min="0" step="0.01"
+                    className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Used for tax receipt generation
+                  </p>
+                </div>
+              </div>
+
+              {/* Allergens */}
+              <div>
+                <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
+                  Allergens (optional)
+                </label>
+                <input
+                  type="text" name="allergens" value={formData.allergens}
+                  onChange={handleChange}
+                  placeholder="e.g., Gluten, Nuts, Dairy"
+                  className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Comma-separated list of allergens present
+                </p>
               </div>
 
               {/* values ($) */}
@@ -267,12 +287,17 @@ const PostFood = () => {
                 <textarea
                   name="description" value={formData.description}
                   onChange={handleChange}
-                  placeholder="e.g., Freshly baked this morning."
+                  placeholder="e.g., Freshly baked this morning, best consumed today."
                   className="w-full p-3 border rounded-xl outline-fb-leaf mt-1 h-20"
                 />
               </div>
 
-              {/* Pickup Address — Google Places Autocomplete */}
+              {/* ── SECTION: Pickup Details ── */}
+              <h3 className="font-bold text-fb-dark text-lg border-b pb-2 pt-2">
+                Pickup Details
+              </h3>
+
+              {/* Address */}
               <div>
                 <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
                   Pickup Address *
@@ -283,14 +308,13 @@ const PostFood = () => {
                     onPlaceChanged={handlePlaceSelect}
                     options={{ componentRestrictions: { country: 'ca' } }}
                   >
-                  {/**  Uncontrolled — Google manages the input value */}
-                  <input
-                    type="text"
-                    name="address"
-                    defaultValue={formData.address}
-                    placeholder="Start typing your address..."
-                    className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
-                  />
+                    <input
+                      type="text"
+                      name="address"
+                      defaultValue={formData.address}
+                      placeholder="Start typing your address..."
+                      className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
+                    />
                   </Autocomplete>
                 ) : (
                   <input
@@ -334,7 +358,7 @@ const PostFood = () => {
                 </div>
               </div>
 
-              {/* Photo Upload */}
+              {/* Photo */}
               <div>
                 <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
                   Photo (optional)
@@ -367,28 +391,59 @@ const PostFood = () => {
               </button>
             </div>
 
-            {/* Right — Live Preview */}
-            <div className="bg-fb-mint/30 p-8 rounded-3xl border border-fb-mint">
+            {/* ── Right — Live Preview ── */}
+            <div className="bg-fb-mint/30 p-8 rounded-3xl border border-fb-mint sticky top-8">
               <h3 className="font-bold text-fb-dark text-lg mb-6">Listing Preview</h3>
               <div className="bg-white p-6 rounded-2xl shadow-md space-y-3">
-                <div className="font-bold text-fb-dark">
+
+                <div className="font-bold text-fb-dark text-lg">
                   {formData.title || 'Your listing title'}
                 </div>
-                <div className="text-sm text-gray-500">
-                  {formData.quantity || '—'} {formData.unit} · {formData.condition}
+
+                <div className="flex gap-2 flex-wrap">
+                  {formData.category && (
+                    <span className="bg-fb-mint text-fb-dark px-3 py-1 rounded text-xs font-bold capitalize">
+                      {formData.category}
+                    </span>
+                  )}
+                  {formData.condition && (
+                    <span className={`px-3 py-1 rounded text-xs font-bold capitalize
+                      ${formData.condition === 'fresh' ? 'bg-green-100 text-green-700' :
+                        formData.condition === 'good'  ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'}`}>
+                      {formData.condition}
+                    </span>
+                  )}
                 </div>
+
                 <div className="text-sm text-gray-500">
-                  {formData.value ? `$${parseFloat(formData.value).toFixed(2)}` : '$0.00'}
+                  {formData.quantity || '—'} {formData.unit}
                 </div>
-                {formData.category && (
-                  <span className="bg-fb-mint text-fb-dark inline-block px-3 py-1
-                                   rounded text-xs font-bold capitalize">
-                    {formData.category}
-                  </span>
+
+                {formData.expiryDate && (
+                  <div className="text-sm text-orange-600 font-medium">
+                    📅 Expires: {new Date(formData.expiryDate).toLocaleDateString()}
+                  </div>
                 )}
+
+                {formData.estimatedValue && (
+                  <div className="text-sm text-green-700 font-medium">
+                    💰 Est. value: ${parseFloat(formData.estimatedValue).toFixed(2)} CAD
+                  </div>
+                )}
+
+                {formData.allergens && (
+                  <div className="text-sm text-red-600">
+                    ⚠️ Allergens: {formData.allergens}
+                  </div>
+                )}
+
                 {formData.address && (
-                  <div className="text-sm mt-1">📍 {formData.address}</div>
+                  <div className="text-sm text-gray-600">
+                    📍 {formData.address}
+                  </div>
                 )}
+
                 {formData.pickupStart && (
                   <div className="text-xs text-fb-leaf font-semibold bg-fb-mint p-2 rounded">
                     Pickup from {new Date(formData.pickupStart).toLocaleString()}

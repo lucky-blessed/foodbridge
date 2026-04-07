@@ -124,7 +124,6 @@ const Dashboard = () => {
                 <tr>
                   <th className="px-6 py-3 text-left">Title</th>
                   <th className="px-6 py-3 text-left">Category</th>
-                  <th className="px-6 py-3 text-left">ExpiresAt</th>
                   <th className="px-6 py-3 text-left">Value ($)</th>
                   <th className="px-6 py-3 text-left">Pickup End</th>
                   <th className="px-6 py-3 text-left">Status</th>
@@ -139,9 +138,6 @@ const Dashboard = () => {
                     </td>
                     <td className="px-6 py-4 capitalize text-gray-500">
                       {listing.category}
-                    </td>
-                    <td className="px-6 py-4 text-gray-500">
-                      {listing.expiresAt ? new Date(listing.expiresAt).toLocaleDateString() : new Date(0).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 text-gray-500">
                       {listing.value?.toFixed(2)}
