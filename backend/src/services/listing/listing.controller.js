@@ -57,7 +57,6 @@ class ListingController {
                 quantity: Number(quantity),
                 unit,
                 condition,
-                
                 description,
                 expiryDate: expiryDate ? new Date(expiryDate) : null,
                 estimatedValue: estimatedValue ? Number(estimatedValue) : 0,
