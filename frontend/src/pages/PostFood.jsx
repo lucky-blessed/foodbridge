@@ -34,6 +34,7 @@ const PostFood = () => {
     quantity:    '',
     unit:        '',
     condition:   'fresh',
+    value:       '',
     description: '',
     address:     '',
     lat:         '',
@@ -232,6 +233,20 @@ const PostFood = () => {
                 </select>
               </div>
 
+              {/* values ($) */}
+              <div>
+                <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
+                  Value ($) (optional)
+                </label>
+                <input
+                  type="number" name="value" value={formData.value}
+                  onChange={handleChange} placeholder="e.g., 10.00"
+                  className="w-full p-3 border rounded-xl outline-fb-leaf mt-1"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+
               {/* Description */}
               <div>
                 <label className="text-xs font-black text-fb-dark uppercase tracking-widest">
@@ -349,6 +364,9 @@ const PostFood = () => {
                 </div>
                 <div className="text-sm text-gray-500">
                   {formData.quantity || '—'} {formData.unit} · {formData.condition}
+                </div>
+                <div className="text-sm text-gray-500">
+                  {formData.value ? `$${parseFloat(formData.value).toFixed(2)}` : '$0.00'}
                 </div>
                 {formData.category && (
                   <span className="bg-fb-mint text-fb-dark inline-block px-3 py-1

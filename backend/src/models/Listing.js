@@ -55,6 +55,12 @@ const FoodListingSchema = new mongoose.Schema(
             default: 'fresh'
         },
 
+        value: {
+            type: Number,
+            min: [0, 'Value cannot be negative'],
+            default: 0.00
+        },
+
         description: {
             type: String,
             trim: true,

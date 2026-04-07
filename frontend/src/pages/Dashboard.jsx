@@ -124,6 +124,7 @@ const Dashboard = () => {
                 <tr>
                   <th className="px-6 py-3 text-left">Title</th>
                   <th className="px-6 py-3 text-left">Category</th>
+                  <th className="px-6 py-3 text-left">Value ($)</th>
                   <th className="px-6 py-3 text-left">Pickup End</th>
                   <th className="px-6 py-3 text-left">Status</th>
                   <th className="px-6 py-3 text-left">Actions</th>
@@ -137,6 +138,9 @@ const Dashboard = () => {
                     </td>
                     <td className="px-6 py-4 capitalize text-gray-500">
                       {listing.category}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {listing.value?.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 text-gray-500">
                       {new Date(listing.pickupEnd).toLocaleDateString()}
