@@ -2,34 +2,60 @@
  * Sidebar.jsx - Navigation Sidebar
  *
  * Used by Dashboard and other donor/admin pages.
- * Handles navigation and logout via auth.js service.
+ * Handles navigation, logout, and notification bell with unread badge.
  *
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logout, getCurrentUser } from '../services/auth';
+import { getNotifications } from '../services/api';
 
 const Sidebar = () => {
   const location = useLocation();
   const navigate  = useNavigate();
   const user      = getCurrentUser();
 
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Fetch unread count on mount and every 30 seconds as a polling fallback.
+  // Socket.io real-time push will update this instantly when a notification
+  // arrives — polling just ensures accuracy after reconnects or page refreshes.
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchUnread = async () => {
+      try {
+        const { data } = await getNotifications({ limit: 30 });
+        setUnreadCount(data.unreadCount);
+      } catch {
+        // Non-critical — badge simply won't update if this fails
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const donorItems = [
-    { name: 'Dashboard',   path: '/dashboard',  icon: '📊' },
-    { name: 'Post Food',   path: '/post',        icon: '➕' },
-    { name: 'Profile',     path: '/profile',     icon: '👤' },
+    { name: 'Dashboard',      path: '/dashboard',      icon: '📊' },
+    { name: 'Post Food',      path: '/post',            icon: '➕' },
+    { name: 'Notifications',  path: '/notifications',   icon: '🔔' },
+    { name: 'Profile',        path: '/profile',         icon: '👤' },
   ];
 
   const recipientItems = [
-    { name: 'Discover',    path: '/discover',    icon: '🔍' },
-    { name: 'My Claims',   path: '/claimlimit',  icon: '📋' },
-    { name: 'Profile',     path: '/profile',     icon: '👤' },
+    { name: 'Discover',       path: '/discover',        icon: '🔍' },
+    { name: 'My Claims',      path: '/claimlimit',      icon: '📋' },
+    { name: 'Notifications',  path: '/notifications',   icon: '🔔' },
+    { name: 'Profile',        path: '/profile',         icon: '👤' },
   ];
 
   const adminItems = [
-    { name: 'Admin Panel', path: '/admin',       icon: '🛡️' },
-    { name: 'Profile',     path: '/profile',     icon: '👤' },
+    { name: 'Admin Panel',    path: '/admin',           icon: '🛡️' },
+    { name: 'Notifications',  path: '/notifications',   icon: '🔔' },
+    { name: 'Profile',        path: '/profile',         icon: '👤' },
   ];
 
   const getMenuItems = () => {
@@ -71,7 +97,16 @@ const Sidebar = () => {
             }`}
           >
             <span>{item.icon}</span>
-            <span className="font-medium">{item.name}</span>
+            <span className="font-medium flex-1">{item.name}</span>
+
+            {/* Unread badge — only shown on the Notifications link */}
+            {item.path === '/notifications' && unreadCount > 0 && (
+              <span className="bg-fb-coral text-white text-xs font-bold
+                               rounded-full h-5 w-5 flex items-center
+                               justify-center flex-shrink-0">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </Link>
         ))}
       </div>

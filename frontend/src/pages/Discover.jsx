@@ -12,6 +12,7 @@ import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-map
 import { getNearbyListings } from '../services/listings';
 import { claimListing } from '../services/claims';
 import Sidebar from '../components/Sidebar';
+import { saveUserLocation } from '../services/api';
 
 const DEFAULT_LAT = 52.2681;
 const DEFAULT_LNG = -113.8112;
@@ -35,13 +36,20 @@ const Discover = () => {
   });
 
   // Get user location on mount
+  // Get user location on mount
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => setCoords({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude
-        }),
+        (pos) => {
+          const { latitude: lat, longitude: lng } = pos.coords;
+          setCoords({ lat, lng });
+
+          // Persist location to PostgreSQL so the NewListing
+          // notification query can find this recipient
+          saveUserLocation(lat, lng).catch(() => {
+            // Non-critical — silently ignore if save fails
+          });
+        },
         () => setCoords({ lat: DEFAULT_LAT, lng: DEFAULT_LNG })
       );
     }

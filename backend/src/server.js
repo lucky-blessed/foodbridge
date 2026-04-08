@@ -42,6 +42,62 @@ const startServer = async () => {
         }
     });
 
+    // Run every minute: send pickup reminder email 30 minutes before window closes
+    // Checks for active claims whose listing pickupEnd is 30–31 minutes from now
+    // The 1-minute window prevents duplicate emails on each cron tick
+    cron.schedule('* * * * *', async () => {
+        try {
+            const { pool } = require('./config/database');
+            const FoodListing = require('./services/listing/listing.service');
+            const User = require('./models/User');
+            const EmailService = require('./services/auth/email.service');
+
+            const now = new Date();
+            const windowStart = new Date(now.getTime() + 30 * 60 * 1000); // 30 min from now
+            const windowEnd   = new Date(now.getTime() + 31 * 60 * 1000); // 31 min from now
+
+            // Find all active claims where the listing pickup window
+            // closes in the next 30–31 minutes
+            const { rows: claims } = await pool.query(
+                `SELECT cr.recipient_id, cr.listing_id
+                FROM claim_records cr
+                WHERE cr.status = 'active'`,
+            );
+
+            for (const claim of claims) {
+                try {
+                    // Fetch the MongoDB listing to check pickupEnd
+                    const mongoose = require('mongoose');
+                    const FoodListingModel = require('./models/Listing');
+                    const listing = await FoodListingModel.findById(claim.listing_id);
+
+                    if (!listing) continue;
+
+                    const pickupEnd = new Date(listing.pickupEnd);
+                    if (pickupEnd >= windowStart && pickupEnd < windowEnd) {
+                        const recipient = await User.findById(claim.recipient_id);
+                        if (recipient) {
+                            await EmailService.sendPickupReminder(
+                                recipient.email,
+                                recipient.first_name,
+                                listing.title,
+                                listing.location?.address || '',
+                                listing.pickupEnd
+                            );
+                            console.log(
+                                `Pickup reminder sent to ${recipient.email} for "${listing.title}"`
+                            );
+                        }
+                    }
+                } catch (innerErr) {
+                    console.error('Pickup reminder error for claim:', claim.listing_id, innerErr.message);
+                }
+            }
+        } catch (err) {
+            console.error('Pickup reminder cron error:', err.message);
+        }
+    });
+
 
 
     app.listen(PORT, () => {

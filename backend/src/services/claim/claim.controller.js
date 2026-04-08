@@ -16,6 +16,8 @@
 
 const ClaimService = require('./claim.service');
 const NotificationService = require('../notification/notification.service');
+const EmailService = require('../auth/email.service');
+const User = require('../../models/User');
 
 class ClaimController {
 
@@ -70,7 +72,32 @@ class ClaimController {
                 console.error('[ClaimController.create] ClaimConfirm dispatch error:', notifError.message);
             }
 
-            // ── LimitWarning notification → recipient ─────────────────────
+            // ── Claim email -> donor ───────────────────────────────────────
+            // Email the donor to let them know their listing has been claimed
+            try {
+                const { listing } = result;
+                if (listing && listing.donorId) {
+                    const donor = await User.findById(listing.donorId);
+                    if (donor) {
+                        EmailService.sendClaimNotification(
+                            donor.email,
+                            donor.first_name,
+                            listing.title,
+                            listing.pickupEnd
+                        ).catch(err =>
+                            console.error(
+                                '[ClaimController.create] claim email failed:',
+                                err.message
+                            )
+                        );
+                    }
+                }
+            } catch (emailErr) {
+                console.error('[ClaimController.create] claim email error:', emailErr.message);
+            }
+            // ─────────────────────────────────────────────────────────────
+
+            // ── LimitWarning notification -> recipient ─────────────────────
             try {
                 if (result.remainingClaims === 1) {
                     const io = req.app.get('io');

@@ -47,6 +47,17 @@ api.interceptors.response.use(
     }
 );
 
+// Save user's current location to their profile
+// Called from Discover.jsx when geolocation resolves
+export const saveUserLocation = (lat, lng) =>
+    api.patch('/auth/profile', { location_lat: lat, location_lng: lng });
+
+export const getNotifications = (params) =>
+    api.get('/notifications', { params });
+
+export const markNotifRead     = (id)     => api.patch(`/notifications/${id}/read`);
+export const markAllNotifsRead = ()       => api.patch('/notifications/read-all');
+
 
 
 export default api;

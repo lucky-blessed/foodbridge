@@ -8,6 +8,8 @@
 
 const ListingService = require('./listing.service');
 const NotificationService = require('../notification/notification.service');
+const EmailService = require('../auth/email.service');
+const User = require('../../models/User');
 const { pool } = require('../../config/database');
 
 class ListingController {
@@ -294,6 +296,32 @@ class ListingController {
             }
 
             const result = await ListingService.confirmPickup(id, req.user.id);
+
+            // Email the recipient to confirm their pickup is complete
+            try {
+                const listing = result.listing;
+                const claim = await pool.query(
+                    `SELECT recipient_id FROM claim_records
+                    WHERE listing_id = $1 AND status = 'completed'
+                    ORDER BY picked_up_at DESC LIMIT 1`,
+                    [id]
+                );
+                if (claim.rows[0]) {
+                    const recipient = await User.findById(claim.rows[0].recipient_id);
+                    if (recipient) {
+                        EmailService.sendPickupConfirmed(
+                            recipient.email,
+                            recipient.first_name,
+                            listing.title
+                        ).catch(err =>
+                            console.error('[confirmPickup] email failed:', err.message)
+                        );
+                    }
+                }
+            } catch (emailErr) {
+                console.error('[confirmPickup] email dispatch error:', emailErr.message);
+            }
+            
             return res.status(200).json(result);
 
         } catch (error) {

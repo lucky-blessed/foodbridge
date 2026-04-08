@@ -34,6 +34,9 @@ import ClaimLimit from './pages/ClaimLimit';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword  from './pages/ResetPassword';
 import Profile        from './pages/Profile';
+import Notifications from './pages/Notifications';
+
+
 
 function App() {
   return (
@@ -66,6 +69,10 @@ function App() {
 
         {/** Profile flow */}
         <Route path="/profile"         element={<Profile />} />
+
+        {/** Notification */}
+        <Route path="/notifications" element={<Notifications />} />
+        
       </Routes>
     </BrowserRouter>
   );

@@ -95,7 +95,15 @@ app.use(morgan('dev'));
 // Visit http://localhost:3000/health in your browser to test it
 
 // Mount auth routes at /auth to make /auth/register and /auth/login available
-app.use('/auth', authLimiter, authRoutes);
+// app.use('/auth', authLimiter, authRoutes);
+
+// Strict limiter applied only to sensitive auth endpoints
+// Profile and logout use the global limiter only
+app.use('/auth/login',            authLimiter, authRoutes);
+app.use('/auth/register',         authLimiter, authRoutes);
+app.use('/auth/forgot-password',  authLimiter, authRoutes);
+app.use('/auth/reset-password',   authLimiter, authRoutes);
+app.use('/auth',                              authRoutes);
 
 app.use('/listings', listingRoutes);
 
