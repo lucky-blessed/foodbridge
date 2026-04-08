@@ -7,6 +7,8 @@
  */
 
 const ListingService = require('./listing.service');
+const NotificationService = require('../notification/notification.service');
+const { pool } = require('../../config/database');
 
 class ListingController {
 
@@ -24,7 +26,7 @@ class ListingController {
                 expiryDate, estimatedValue, allergens
             } = req.body;
 
-            // Validate required field
+            // Validate required fields
             if (!title || !category || !quantity || !unit) {
                 return res.status(400).json({
                     error: 'Missing required fields',
@@ -44,7 +46,7 @@ class ListingController {
                 });
             }
 
-            // validate pikup window makes sense
+            // Validate pickup window makes sense
             if (new Date(pickupEnd) <= new Date(pickupStart)) {
                 return res.status(400).json({
                     error: 'pickupEnd must be after pickupStart'
@@ -57,7 +59,6 @@ class ListingController {
                 quantity: Number(quantity),
                 unit,
                 condition,
-                
                 description,
                 expiryDate: expiryDate ? new Date(expiryDate) : null,
                 estimatedValue: estimatedValue ? Number(estimatedValue) : 0,
@@ -79,11 +80,64 @@ class ListingController {
                 req.file || null
             );
 
+            // ── NewListing notifications ──────────────────────────────────────
+            // Fire-and-forget: runs AFTER the 201 response is already decided.
+            // A notification failure must never cause the listing creation to fail.
+            // We query PostgreSQL for recipients with a saved location within 25 km
+            // using the Haversine formula directly in SQL.
+            try {
+                const { rows: nearbyRecipients } = await pool.query(
+                    `SELECT id FROM users
+                    WHERE role = 'recipient'
+                    AND is_active = TRUE
+                    AND location_lat IS NOT NULL
+                    AND location_lng IS NOT NULL
+                    AND (
+                        6371 * acos(
+                        cos(radians($1)) * cos(radians(location_lat)) *
+                        cos(radians(location_lng) - radians($2)) +
+                        sin(radians($1)) * sin(radians(location_lat))
+                        )
+                    ) <= 25`,
+                    [parseFloat(lat), parseFloat(lng)]
+                );
+
+                if (nearbyRecipients.length > 0) {
+                    const pickupTime = new Date(pickupEnd).toLocaleTimeString(
+                        'en-CA', { hour: '2-digit', minute: '2-digit' }
+                    );
+                    const message =
+                        `New listing nearby: "${title}" — available until ${pickupTime}.`;
+
+                    const io = req.app.get('io');
+
+                    // Notify each recipient independently so one failure
+                    // does not block the others
+                    for (const recipient of nearbyRecipients) {
+                        NotificationService.create(
+                            io,
+                            recipient.id,
+                            message,
+                            'NewListing'
+                        ).catch(err =>
+                            console.error(
+                                `[ListingController.create] notification failed for ${recipient.id}:`,
+                                err.message
+                            )
+                        );
+                    }
+                }
+            } catch (notifError) {
+                // Log but never let this bubble up and affect the 201 response
+                console.error('[ListingController.create] notification dispatch error:', notifError.message);
+            }
+            // ─────────────────────────────────────────────────────────────────
+
             return res.status(201).json({
                 message: 'Listing created successfully.',
                 listing
             });
-            
+
         } catch (error) {
             console.error('[ListingController.create]', error);
             return res.status(500).json({

@@ -141,6 +141,7 @@ class ClaimService {
 
             return {
                 claim,
+                listing,
                 remainingClaims: CLAIM_LIMIT - (claimCount + 1)
             };
             

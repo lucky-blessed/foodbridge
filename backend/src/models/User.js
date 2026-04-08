@@ -45,22 +45,16 @@ class User {
     }
 
     // update -> used by AuthService.updateProfile
-    async update(id, { firstName, lastName }) {
+    async update(id, { firstName, lastName, location_lat, location_lng }) {
         const result = await pool.query(
             `UPDATE users
-             SET first_name = $1,
-                last_name = $2,
-                updated_at = NOW()
-             WHERE id = $3
-             RETURNING
-                id,
-                first_name,
-                last_name,
-                email,
-                role,
-                created_at,
-                updated_at`,
-                [firstName, lastName, id]
+            SET first_name    = COALESCE($1, first_name),
+                last_name     = COALESCE($2, last_name),
+                location_lat  = COALESCE($3, location_lat),
+                location_lng  = COALESCE($4, location_lng),
+                updated_at    = NOW()
+            WHERE id = $5`,
+            [firstName, lastName, location_lat, location_lng, id]
         );
         return result.rows[0];
     }
