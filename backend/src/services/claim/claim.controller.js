@@ -15,6 +15,7 @@
  */
 
 const ClaimService = require('./claim.service');
+const NotificationService = require('../notification/notification.service');
 
 class ClaimController {
 
@@ -47,6 +48,47 @@ class ClaimController {
                 req.user.id,
                 listingId
             );
+
+            // ── ClaimConfirm notification → donor ────────────────────────
+            try {
+                const io = req.app.get('io');
+                const { listing } = result;
+                if (listing && listing.donorId) {
+                    NotificationService.create(
+                        io,
+                        listing.donorId,
+                        `Your listing "${listing.title}" has been claimed and is ready for pickup.`,
+                        'ClaimConfirm'
+                    ).catch(err =>
+                        console.error(
+                            '[ClaimController.create] ClaimConfirm notification failed:',
+                            err.message
+                        )
+                    );
+                }
+            } catch (notifError) {
+                console.error('[ClaimController.create] ClaimConfirm dispatch error:', notifError.message);
+            }
+
+            // ── LimitWarning notification → recipient ─────────────────────
+            try {
+                if (result.remainingClaims === 1) {
+                    const io = req.app.get('io');
+                    NotificationService.create(
+                        io,
+                        req.user.id,
+                        'You have 1 claim remaining this week. Your window resets in 7 days.',
+                        'LimitWarning'
+                    ).catch(err =>
+                        console.error(
+                            '[ClaimController.create] LimitWarning notification failed:',
+                            err.message
+                        )
+                    );
+                }
+            } catch (notifError) {
+                console.error('[ClaimController.create] LimitWarning dispatch error:', notifError.message);
+            }
 
             return res.status(201).json({
                 message: 'Listing claimed successfully.',

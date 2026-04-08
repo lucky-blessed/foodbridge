@@ -10,6 +10,7 @@ const authRoutes = require('./services/auth/auth.routes');
 const listingRoutes = require('./services/listing/listing.routes');
 const claimRoutes = require('./services/claim/claim.routes');
 const adminRoutes = require('./services/admin/admin.routes');
+const notificationRoutes = require('./services/notification/notification.routes');
 
 // Create the express application
 const app = express();
@@ -101,6 +102,8 @@ app.use('/listings', listingRoutes);
 app.use('/claims', claimRoutes);
 
 app.use('/admin', adminRoutes);
+
+app.use('/notifications', notificationRoutes);
 
 app.get('/health', (req, res) => {
     res.json({

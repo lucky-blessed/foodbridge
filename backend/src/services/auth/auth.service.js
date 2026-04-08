@@ -127,16 +127,13 @@ class AuthService {
      * updateProfile - update firstName and lastName only
      * Email and role are never changed here.
      * @param {string} userId
-     * @param {Object} fields - { firstName, lastName}
+     * @param {Object} fields - { firstName, lastName, location_lat, location_lng }
      */
-    async updateProfile(userId, { firstName, lastName }) {
-        if (!firstName || !lastName) {
-            throw new Error('First name and last name are required.');
+    async updateProfile(userId, { firstName, lastName, location_lat, location_lng }) {
+        if (!firstName && !lastName && location_lat === undefined && location_lng === undefined) {
+            throw new Error('At least one field is required to update.');
         }
-        const updated = await User.update(userId, { firstName, lastName });
-        if (!updated) {
-            throw new Error('User not found.');
-        }
+        const updated = await User.update(userId, { firstName, lastName, location_lat, location_lng });
         return updated;
     }
 

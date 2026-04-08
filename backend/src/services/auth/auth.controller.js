@@ -166,10 +166,10 @@ class AuthController {
 
     async updateProfile(req, res) {
         try {
-            const { firstName, lastName } = req.body;
+            const { firstName, lastName, location_lat, location_lng } = req.body;
             const user = await AuthService.updateProfile(
                 req.user.id,
-                { firstName, lastName }
+                { firstName, lastName, location_lat, location_lng }
             ); return res.status(200).json({
                 message: 'Profile updated successfully.',
                 user
