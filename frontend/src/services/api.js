@@ -58,6 +58,17 @@ export const getNotifications = (params) =>
 export const markNotifRead     = (id)     => api.patch(`/notifications/${id}/read`);
 export const markAllNotifsRead = ()       => api.patch('/notifications/read-all');
 
+// ── Impact Dashboard ─────────────────────────────────────────
+// period = week | month | year (default month)
+export const getDonorImpact     = (period = 'month') =>
+    api.get('/impact/donor',     { params: { period } });
+
+export const getRecipientImpact = (period = 'month') =>
+    api.get('/impact/recipient', { params: { period } });
+
+export const getAdminImpact     = (period = 'month') =>
+    api.get('/impact/admin',     { params: { period } });
+
 
 
 export default api;
