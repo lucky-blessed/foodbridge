@@ -35,6 +35,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword  from './pages/ResetPassword';
 import Profile        from './pages/Profile';
 import Notifications from './pages/Notifications';
+import Impact from './pages/Impact';
 
 
 
@@ -72,6 +73,9 @@ function App() {
 
         {/** Notification */}
         <Route path="/notifications" element={<Notifications />} />
+        
+        <Route path="/impact" element={<Impact />} />
+
         
       </Routes>
     </BrowserRouter>

@@ -41,6 +41,7 @@ const Sidebar = () => {
   const donorItems = [
     { name: 'Dashboard',      path: '/dashboard',      icon: '📊' },
     { name: 'Post Food',      path: '/post',            icon: '➕' },
+    { name: 'Impact',        path: '/impact',        icon: '🌱' },
     { name: 'Notifications',  path: '/notifications',   icon: '🔔' },
     { name: 'Profile',        path: '/profile',         icon: '👤' },
   ];
@@ -48,13 +49,14 @@ const Sidebar = () => {
   const recipientItems = [
     { name: 'Discover',       path: '/discover',        icon: '🔍' },
     { name: 'My Claims',      path: '/claimlimit',      icon: '📋' },
+    { name: 'Impact',        path: '/impact',        icon: '🌱' },
     { name: 'Notifications',  path: '/notifications',   icon: '🔔' },
     { name: 'Profile',        path: '/profile',         icon: '👤' },
-    { name: 'Impact',         path: '/impact',           icon: '📊' },
   ];
 
   const adminItems = [
     { name: 'Admin Panel',    path: '/admin',           icon: '🛡️' },
+    { name: 'Impact',        path: '/impact',        icon: '🌱' },
     { name: 'Notifications',  path: '/notifications',   icon: '🔔' },
     { name: 'Profile',        path: '/profile',         icon: '👤' },
   ];
