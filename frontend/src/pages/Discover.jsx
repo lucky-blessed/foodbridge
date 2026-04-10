@@ -19,23 +19,23 @@ const DEFAULT_LNG = -113.8112;
 const MAP_STYLE = { width: '100%', height: '100%' };
 
 const Discover = () => {
-  const [listings,  setListings]  = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState('');
-  const [radius,    setRadius]    = useState(5);
-  const [category,  setCategory]  = useState('');
-  const [search,    setSearch]    = useState('');
-  const [coords,    setCoords]    = useState({ lat: DEFAULT_LAT, lng: DEFAULT_LNG });
-  const [selected,  setSelected]  = useState(null);
-  const [claiming,  setClaiming]  = useState(null);
-  const [view,      setView]      = useState('list');  // 'list' or 'map'
-  const [mapRef,    setMapRef]    = useState(null);
+  const [listings,     setListings]     = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState('');
+  const [radius,       setRadius]       = useState(5);
+  const [category,     setCategory]     = useState('');
+  const [search,       setSearch]       = useState('');
+  const [coords,       setCoords]       = useState({ lat: DEFAULT_LAT, lng: DEFAULT_LNG });
+  const [selected,     setSelected]     = useState(null);
+  const [claiming,     setClaiming]     = useState(null);
+  const [lastClaimed,  setLastClaimed]  = useState(null); // Stores { pin, title }
+  const [view,         setView]         = useState('list');  // 'list' or 'map'
+  const [mapRef,       setMapRef]       = useState(null);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY,
   });
 
-  // Get user location on mount
   // Get user location on mount
   useEffect(() => {
     if (navigator.geolocation) {
@@ -44,8 +44,6 @@ const Discover = () => {
           const { latitude: lat, longitude: lng } = pos.coords;
           setCoords({ lat, lng });
 
-          // Persist location to PostgreSQL so the NewListing
-          // notification query can find this recipient
           saveUserLocation(lat, lng).catch(() => {
             // Non-critical — silently ignore if save fails
           });
@@ -63,7 +61,7 @@ const Discover = () => {
   useEffect(() => {
     if (mapRef && listings.length > 0 && window.google) {
       const bounds = new window.google.maps.LatLngBounds();
-      bounds.extend(coords); // include user location
+      bounds.extend(coords); 
       listings.forEach(l => {
         bounds.extend({
           lat: l.location.coordinates[1],
@@ -92,10 +90,22 @@ const Discover = () => {
     }
   };
 
+  const generatePin = (listingId) => {
+    const randomNum = Math.floor(Math.random() * 1000000);
+    return randomNum.toString().padStart(6, '0');
+  }
+
   const handleClaim = async (listingId) => {
+    const pin = generatePin(listingId);
+
     setClaiming(listingId);
     try {
-      await claimListing(listingId);
+      await claimListing(listingId, pin);
+      
+      // Capture details before removing from state
+      const claimedItem = listings.find(l => l._id === listingId);
+      setLastClaimed({ pin: pin, title: claimedItem?.title });
+      
       setListings(prev => prev.filter(l => l._id !== listingId));
       setSelected(null);
     } catch (err) {
@@ -111,11 +121,9 @@ const Discover = () => {
     l.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  // ── Listing Card — used in both list view and map InfoWindow ──────────────
   const ListingCard = ({ item, compact = false }) => (
     <div className={`bg-white rounded-2xl shadow-sm overflow-hidden border
-                     border-gray-100 hover:shadow-md transition-shadow
-                     ${compact ? '' : ''}`}>
+                     border-gray-100 hover:shadow-md transition-shadow`}>
       {item.photoUrl ? (
         <img
           src={item.photoUrl}
@@ -139,7 +147,6 @@ const Discover = () => {
             </span>
           </div>
 
-          {/* Donor + condition */}
           <div className="flex items-center gap-2 mt-1">
             <p className="text-xs text-gray-500">👤 {item.donorName}</p>
             {item.condition && (
@@ -152,14 +159,12 @@ const Discover = () => {
             )}
           </div>
 
-          {/* Quantity */}
           {item.quantity && (
             <p className="text-xs text-gray-500 mt-1">
               📦 {item.quantity} {item.unit}
             </p>
           )}
 
-          {/* Expiry date */}
           {item.expiryDate && (
             <p className={`text-xs font-medium mt-1 ${
               new Date(item.expiryDate) < new Date()
@@ -169,64 +174,25 @@ const Discover = () => {
                 : 'text-gray-500'
             }`}>
               📅 Expires: {new Date(item.expiryDate).toLocaleDateString()}
-              {new Date(item.expiryDate) < new Date() && ' — Expired'}
-              {new Date(item.expiryDate) - new Date() < 86400000 * 2 &&
-                new Date(item.expiryDate) >= new Date() && ' — Expiring soon!'}
             </p>
           )}
 
-          {/* Estimated value */}
-          {item.estimatedValue > 0 && (
-            <p className="text-xs text-green-700 font-medium mt-1">
-              💰 Est. value: ${item.estimatedValue.toFixed(2)} CAD
-            </p>
-          )}
-
-          {/* Allergens */}
-          {item.allergens && (
-            <p className="text-xs text-red-500 mt-1">
-              ⚠️ Allergens: {item.allergens}
-            </p>
-          )}
-
-          {/* Address */}
           {item.location?.address && (
             <p className="text-xs text-gray-600 mt-1 flex items-start gap-1">
               <span className="flex-shrink-0">📍</span>
               <span>{item.location.address}</span>
             </p>
           )}
-          {!item.location?.address && item.location && (
-            <p className="text-xs text-gray-400 mt-1">
-              📍 {item.location.coordinates[1].toFixed(4)},
-              {item.location.coordinates[0].toFixed(4)}
-            </p>
-          )}
-
-          {/* Pickup window */}
-          <p className="text-xs text-gray-400 mt-1">
-            🕐 Pickup:{' '}
-            {new Date(item.pickupStart).toLocaleDateString([], {
-              month: 'short', day: 'numeric'
-            })}{' '}
-            {new Date(item.pickupStart).toLocaleTimeString([], {
-              hour: '2-digit', minute: '2-digit'
-            })}
-            {' – '}
-            {new Date(item.pickupEnd).toLocaleTimeString([], {
-              hour: '2-digit', minute: '2-digit'
-            })}
-          </p>
 
           <button
-          onClick={() => handleClaim(item._id)}
-          disabled={claiming === item._id}
-          className="w-full mt-3 bg-white border-2 border-fb-coral text-fb-coral
-                    font-bold py-2 rounded-xl hover:bg-fb-coral hover:text-white
-                    text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-          {claiming === item._id ? 'Claiming...' : 'Claim Item'}
-        </button>
+            onClick={() => handleClaim(item._id)}
+            disabled={claiming === item._id}
+            className="w-full mt-3 bg-white border-2 border-fb-coral text-fb-coral
+                      font-bold py-2 rounded-xl hover:bg-fb-coral hover:text-white
+                      text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {claiming === item._id ? 'Claiming...' : 'Claim Item'}
+          </button>
       </div>
     </div>
   );
@@ -235,14 +201,51 @@ const Discover = () => {
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
 
+      {/* PIN SUCCESS MODAL */}
+      {lastClaimed && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center border-4 border-fb-mint animate-in fade-in zoom-in duration-300">
+            <div className="text-4xl mb-4">🎉</div>
+            <h3 className="text-xl font-bold text-fb-dark mb-2">Claim Successful!</h3>
+            <p className="text-gray-600 text-sm mb-6">
+              You've claimed: <span className="font-semibold">{lastClaimed.title}</span>
+            </p>
+
+            <div className="bg-gray-100 rounded-2xl p-6 mb-4 relative">
+              <span className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">
+                Your Pickup PIN
+              </span>
+              <span className="text-4xl font-black tracking-[0.2em] text-fb-dark">
+                {lastClaimed.pin}
+              </span>
+              
+              <button 
+                onClick={() => navigator.clipboard.writeText(lastClaimed.pin)}
+                className="mt-4 flex items-center justify-center gap-2 mx-auto text-fb-coral font-bold text-xs hover:underline"
+              >
+                📋 Copy Code
+              </button>
+            </div>
+
+            <p className="text-sm text-fb-dark font-medium leading-relaxed mb-6 italic">
+              "Save this code — your donor will ask for it at pickup."
+            </p>
+
+            <button
+              onClick={() => setLastClaimed(null)}
+              className="w-full bg-fb-dark text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity"
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Filters Panel */}
       <aside className="w-52 bg-white p-5 border-r hidden md:flex flex-col flex-shrink-0">
         <h3 className="font-bold text-fb-dark mb-5">Filters</h3>
-
-        {/* Radius buttons */}
         <div className="mb-5">
-          <label className="block text-xs font-bold text-fb-dark uppercase
-                            tracking-widest mb-2">
+          <label className="block text-xs font-bold text-fb-dark uppercase tracking-widest mb-2">
             Distance
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -250,11 +253,8 @@ const Discover = () => {
               <button
                 key={km}
                 onClick={() => setRadius(km)}
-                className={`py-2 rounded-lg text-sm font-semibold border-2
-                            transition-colors ${
-                  radius === km
-                    ? 'bg-fb-dark text-white border-fb-dark'
-                    : 'bg-white text-fb-dark border-gray-200 hover:border-fb-dark'
+                className={`py-2 rounded-lg text-sm font-semibold border-2 transition-colors ${
+                  radius === km ? 'bg-fb-dark text-white border-fb-dark' : 'bg-white text-fb-dark border-gray-200 hover:border-fb-dark'
                 }`}
               >
                 {km} km
@@ -263,17 +263,14 @@ const Discover = () => {
           </div>
         </div>
 
-        {/* Category */}
         <div className="mb-5">
-          <label className="block text-xs font-bold text-fb-dark uppercase
-                            tracking-widest mb-2">
+          <label className="block text-xs font-bold text-fb-dark uppercase tracking-widest mb-2">
             Category
           </label>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full p-2 border-2 border-gray-200 rounded-lg text-sm
-                       focus:border-fb-dark outline-none"
+            className="w-full p-2 border-2 border-gray-200 rounded-lg text-sm focus:border-fb-dark outline-none"
           >
             <option value="">All Categories</option>
             <option value="produce">Produce</option>
@@ -284,29 +281,18 @@ const Discover = () => {
             <option value="other">Other</option>
           </select>
         </div>
-
-        <p className="text-xs text-gray-400">
-          {loading ? 'Searching...' : `${listings.length} listing${listings.length !== 1 ? 's' : ''} found`}
-        </p>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
-
-        {/* Header bar */}
-        <div className="bg-white border-b px-6 py-3 flex items-center
-                        justify-between flex-shrink-0">
+        <div className="bg-white border-b px-6 py-3 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-fb-dark">
-              Available Food Near You
-            </h2>
+            <h2 className="text-lg font-bold text-fb-dark">Available Food</h2>
             <span className="text-xs text-gray-400 hidden sm:block">
               {radius} km · {category || 'all categories'}
             </span>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Search */}
             <input
               type="text"
               placeholder="Search..."
@@ -314,26 +300,16 @@ const Discover = () => {
               onChange={(e) => setSearch(e.target.value)}
               className="p-2 border rounded-lg text-sm w-36 hidden sm:block"
             />
-
-            {/* View toggle */}
             <div className="flex border-2 border-gray-200 rounded-lg overflow-hidden">
               <button
                 onClick={() => setView('list')}
-                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  view === 'list'
-                    ? 'bg-fb-dark text-white'
-                    : 'bg-white text-gray-500 hover:bg-gray-50'
-                }`}
+                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${view === 'list' ? 'bg-fb-dark text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
               >
                 ☰ List
               </button>
               <button
                 onClick={() => setView('map')}
-                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  view === 'map'
-                    ? 'bg-fb-dark text-white'
-                    : 'bg-white text-gray-500 hover:bg-gray-50'
-                }`}
+                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${view === 'map' ? 'bg-fb-dark text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
               >
                 🗺 Map
               </button>
@@ -341,164 +317,61 @@ const Discover = () => {
           </div>
         </div>
 
-        {/* Error */}
-        {error && (
-          <div className="p-3 bg-red-50 text-red-600 text-sm text-center border-b">
-            {error}
-          </div>
-        )}
-
-        {/* ── LIST VIEW (default) ── */}
         {view === 'list' && (
           <div className="flex-1 overflow-y-auto p-6">
-
-            {loading && (
-              <div className="text-center text-gray-400 mt-20">
-                Finding food near you...
-              </div>
-            )}
-
+            {loading && <div className="text-center text-gray-400 mt-20">Finding food near you...</div>}
             {!loading && filtered.length === 0 && (
               <div className="text-center text-gray-500 mt-20">
                 <p className="text-lg font-medium">No listings found nearby.</p>
-                <p className="text-sm mt-1 text-gray-400">
-                  Try a wider radius or different category.
-                </p>
               </div>
             )}
-
-            {!loading && filtered.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3
-                              xl:grid-cols-4 gap-5">
-                {filtered.map((item) => (
-                  <ListingCard key={item._id} item={item} />
-                ))}
+            {!loading && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {filtered.map((item) => <ListingCard key={item._id} item={item} />)}
               </div>
             )}
           </div>
         )}
 
-        {/* ── MAP VIEW ── */}
         {view === 'map' && (
           <div className="flex-1 relative">
             {!isLoaded ? (
-              <div className="flex items-center justify-center h-full text-gray-400">
-                Loading map...
-              </div>
+              <div className="flex items-center justify-center h-full text-gray-400">Loading map...</div>
             ) : (
-              <>
-                {/* Hint for non-tech users */}
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10
-                                bg-white px-4 py-2 rounded-full shadow text-xs
-                                text-gray-600 font-medium">
-                  📍 Click a green pin to see details and claim
-                </div>
-
-                <GoogleMap
-                  mapContainerStyle={MAP_STYLE}
-                  center={coords}
-                  zoom={14}
-                  onLoad={onMapLoad}
-                  options={{
-                    streetViewControl: false,
-                    mapTypeControl: false,
-                    fullscreenControl: false,
-                  }}
-                >
-                  {/* Blue dot — your location */}
+              <GoogleMap
+                mapContainerStyle={MAP_STYLE}
+                center={coords}
+                zoom={14}
+                onLoad={onMapLoad}
+                options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false }}
+              >
+                <Marker position={coords} icon={{ path: window.google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#4285F4', fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 2 }} />
+                {listings.map((listing) => (
                   <Marker
-                    position={coords}
-                    icon={{
-                      path: window.google.maps.SymbolPath.CIRCLE,
-                      scale: 8,
-                      fillColor: '#4285F4',
-                      fillOpacity: 1,
-                      strokeColor: '#ffffff',
-                      strokeWeight: 2,
-                    }}
-                    title="Your location"
+                    key={listing._id}
+                    position={{ lat: listing.location.coordinates[1], lng: listing.location.coordinates[0] }}
+                    onClick={() => setSelected(listing)}
+                    icon={{ url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png' }}
                   />
-
-                  {/* Green pins — food listings */}
-                  {listings.map((listing) => (
-                    <Marker
-                      key={listing._id}
-                      position={{
-                        lat: listing.location.coordinates[1],
-                        lng: listing.location.coordinates[0],
-                      }}
-                      onClick={() => setSelected(listing)}
-                      icon={{
-                        url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
-                      }}
-                      title={listing.title}
-                    />
-                  ))}
-
-                  {/* InfoWindow on marker click */}
-                  {selected && (
-                    <InfoWindow
-                      position={{
-                        lat: selected.location.coordinates[1],
-                        lng: selected.location.coordinates[0],
-                      }}
-                      onCloseClick={() => setSelected(null)}
-                    >
-                      <div className="p-1 w-56">
-                        {selected.photoUrl && (
-                          <img
-                            src={selected.photoUrl}
-                            alt={selected.title}
-                            className="w-full h-28 object-cover rounded mb-2"
-                          />
-                        )}
-                        <h4 className="font-bold text-fb-dark text-sm">
-                          {selected.title}
-                        </h4>
-                        <p className="text-xs text-gray-500 capitalize mt-1">
-                          👤 {selected.donorName} · {selected.category}
-                        </p>
-                        {selected.location?.address && (
-                          <p className="text-xs text-gray-600 mt-1">
-                            📍 {selected.location.address}
-                          </p>
-                        )}
-                        <p className="text-xs text-gray-400 mt-1">
-                          🕐{' '}
-                          {new Date(selected.pickupStart).toLocaleTimeString([], {
-                            hour: '2-digit', minute: '2-digit'
-                          })}
-                          {' – '}
-                          {new Date(selected.pickupEnd).toLocaleTimeString([], {
-                            hour: '2-digit', minute: '2-digit'
-                          })}
-                        </p>
-                        <button
-                          onClick={() => handleClaim(selected._id)}
-                          disabled={claiming === selected._id}
-                          style={{
-                            width: '100%',
-                            marginTop: '10px',
-                            backgroundColor: '#40916C',
-                            color: 'white',
-                            fontWeight: 'bold',
-                            fontSize: '12px',
-                            padding: '8px',
-                            borderRadius: '8px',
-                            border: 'none',
-                            cursor: claiming === selected._id ? 'not-allowed' : 'pointer',
-                            opacity: claiming === selected._id ? 0.5 : 1,
-                          }}
-                        >
-                          {claiming === selected._id
-                            ? 'Claiming...'
-                            : 'Claim This Item'}
-                        </button>
-                      </div>
-                    </InfoWindow>
-                  )}
-                </GoogleMap>
-              </>
+                ))}
+                {selected && (
+                  <InfoWindow
+                    position={{ lat: selected.location.coordinates[1], lng: selected.location.coordinates[0] }}
+                    onCloseClick={() => setSelected(null)}
+                  >
+                    <div className="p-1 w-56">
+                      <h4 className="font-bold text-fb-dark text-sm">{selected.title}</h4>
+                      <button
+                        onClick={() => handleClaim(selected._id)}
+                        disabled={claiming === selected._id}
+                        style={{ width: '100%', marginTop: '10px', backgroundColor: '#40916C', color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '8px', borderRadius: '8px', border: 'none' }}
+                      >
+                        {claiming === selected._id ? 'Claiming...' : 'Claim This Item'}
+                      </button>
+                    </div>
+                  </InfoWindow>
+                )}
+              </GoogleMap>
             )}
           </div>
         )}

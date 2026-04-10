@@ -12,8 +12,8 @@ import api from './api';
  * Calls POST /claims
  */
 
-export const claimListing = async (listingId) => {
-    const response = await api.post('claims', { listingId });
+export const claimListing = async (listingId, pin) => {
+    const response = await api.post('claims', { listingId, pin });
     return response.data;
 };
 

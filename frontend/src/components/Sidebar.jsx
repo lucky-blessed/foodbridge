@@ -50,6 +50,7 @@ const Sidebar = () => {
     { name: 'My Claims',      path: '/claimlimit',      icon: '📋' },
     { name: 'Notifications',  path: '/notifications',   icon: '🔔' },
     { name: 'Profile',        path: '/profile',         icon: '👤' },
+    { name: 'Impact',         path: '/impact',           icon: '📊' },
   ];
 
   const adminItems = [

@@ -17,6 +17,7 @@
  * @author Lucky Nkwor
  */
 
+const bcrypt = require('bcryptjs');
 const FoodListing = require('../../models/Listing');
 const { pool } = require('../../config/database');
 
@@ -46,7 +47,7 @@ class ClaimService {
      * @returns (Object) the created claim record
      */
 
-    async create(recipientId, listingId) {
+    async create(recipientId, listingId, pin) {
 
 
         const client = await pool.connect();
@@ -109,17 +110,18 @@ class ClaimService {
             }
 
             // --3-- Insert claim record-----
+            const pinHash = bcrypt.hash(pin, 12); // TODO: implement PIN generation and hashing
             const insertResult = await client.query(
                 `INSERT INTO claim_records
-                    (recipient_id, listing_id, status, claimed_at)
-                VALUES ($1, $2, 'active', NOW())
+                    (recipient_id, listing_id, status, claimed_at, pickup_pin_hash)
+                VALUES ($1, $2, 'active', NOW(), $3)
                 RETURNING
                     id,
                     recipient_id,
                     listing_id,
                     status,
                     claimed_at`,
-                    [recipientId, listingId]
+                [recipientId, listingId, pinHash]
             );
 
             const claim = insertResult.rows[0];
