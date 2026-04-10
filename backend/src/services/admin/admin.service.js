@@ -301,6 +301,104 @@ class AdminService {
 
         return { log: result.rows };
     }
+
+    // =============
+    // CLAIM SETTINGS
+    // ================
+
+    /**
+     * getClaimSettings - get current claim limits and window days
+     * Reads from platform_settings table seeded by migration 008
+     */
+    async getClaimSettings() {
+        const result = await pool.query(
+            `SELECT key, value, updated_at
+            FROM platform_settings
+            WHERE key IN ('claim_limit_individual', 'claim_limit_organization', 'window_days')`
+        );
+
+        // Convert rows array into a keyed object for easy access
+        const settings = {};
+        result.rows.forEach(row => {
+            settings[row.key] = {
+                value:      parseInt(row.value, 10),
+                updated_at: row.updated_at
+            };
+        });
+
+        return {
+            claimLimitIndividual:   settings.claim_limit_individual?.value   || 3,
+            claimLimitOrganization: settings.claim_limit_organization?.value || 10,
+            windowDays:             settings.window_days?.value              || 7,
+            updatedAt:              settings.claim_limit_individual?.updated_at || null
+        };
+    }
+
+    /**
+     * updateClaimSettings - update one or more claim settings
+     *
+     * Each field is optional — only fields provided are updated.
+     * All changes are logged to audit_log for accountability.
+     *
+     * @param {number} claimLimitIndividual   - new limit for individual recipients (1–20)
+     * @param {number} claimLimitOrganization - new limit for org recipients (1–100)
+     * @param {number} windowDays             - rolling window in days (1–30)
+     * @param {string} adminId                - from req.user.id
+     */
+    async updateClaimSettings(claimLimitIndividual, claimLimitOrganization, windowDays, adminId) {
+        if (claimLimitIndividual !== undefined) {
+            if (!Number.isInteger(claimLimitIndividual) ||
+                claimLimitIndividual < 1 || claimLimitIndividual > 20) {
+                throw new Error('Individual claim limit must be a whole number between 1 and 20.');
+            }
+            await pool.query(
+                `UPDATE platform_settings
+                SET value = $1, updated_by = $2, updated_at = NOW()
+                WHERE key = 'claim_limit_individual'`,
+                [String(claimLimitIndividual), adminId]
+            );
+            await this.writeAuditLog(
+                adminId, 'UPDATE_CLAIM_LIMIT_INDIVIDUAL', 'platform_settings',
+                `Individual claim limit set to ${claimLimitIndividual}`
+            );
+        }
+
+        if (claimLimitOrganization !== undefined) {
+            if (!Number.isInteger(claimLimitOrganization) ||
+                claimLimitOrganization < 1 || claimLimitOrganization > 100) {
+                throw new Error('Organization claim limit must be a whole number between 1 and 100.');
+            }
+            await pool.query(
+                `UPDATE platform_settings
+                SET value = $1, updated_by = $2, updated_at = NOW()
+                WHERE key = 'claim_limit_organization'`,
+                [String(claimLimitOrganization), adminId]
+            );
+            await this.writeAuditLog(
+                adminId, 'UPDATE_CLAIM_LIMIT_ORGANIZATION', 'platform_settings',
+                `Organization claim limit set to ${claimLimitOrganization}`
+            );
+        }
+
+        if (windowDays !== undefined) {
+            if (!Number.isInteger(windowDays) || windowDays < 1 || windowDays > 30) {
+                throw new Error('Window days must be a whole number between 1 and 30.');
+            }
+            await pool.query(
+                `UPDATE platform_settings
+                SET value = $1, updated_by = $2, updated_at = NOW()
+                WHERE key = 'window_days'`,
+                [String(windowDays), adminId]
+            );
+            await this.writeAuditLog(
+                adminId, 'UPDATE_WINDOW_DAYS', 'platform_settings',
+                `Window days set to ${windowDays}`
+            );
+        }
+
+        // Return the updated settings so the frontend can reflect the new values
+        return this.getClaimSettings();
+    }
 }
 
 module.exports = new AdminService();
