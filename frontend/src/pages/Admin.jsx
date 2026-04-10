@@ -18,7 +18,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   LayoutDashboard, List, Users, Flag,
-  FileText, Search, Trash2, RefreshCw
+  FileText, Search, Trash2, RefreshCw, Settings
 } from 'lucide-react';
 import api from '../services/api';
 import Sidebar from '../components/Sidebar';
@@ -36,6 +36,11 @@ const Admin = () => {
   const [statusFilter,setStatusFilter]= useState('');
   const [actioningId, setActioningId] = useState(null);
 
+  const [settings,      setSettings]     = useState({ claimLimitIndividual: 3, claimLimitOrganization: 10, windowDays: 7 });
+  const [settingsDirty, setSettingsDirty]= useState(false);
+  const [settingsSaving,setSettingsSaving]= useState(false);
+  const [settingsMsg,   setSettingsMsg]  = useState('');
+
   useEffect(() => {
     fetchAll();
   }, []);
@@ -50,12 +55,19 @@ const Admin = () => {
         api.get('/admin/users?limit=50'),
         api.get('/admin/reports/distribution'),
         api.get('/admin/audit-log?limit=20'),
+        api.get('/admin/settings/claims'),
+
       ]);
       setStats(statsRes.data);
       setListings(listingsRes.data.listings || []);
       setUsers(usersRes.data.users || []);
       setReport(reportRes.data.report || []);
       setAuditLog(auditRes.data.log || []);
+      setSettings({
+        claimLimitIndividual:   settingsRes.data.claimLimitIndividual,
+        claimLimitOrganization: settingsRes.data.claimLimitOrganization,
+        windowDays:             settingsRes.data.windowDays
+    });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load admin data.');
     } finally {
@@ -162,7 +174,27 @@ const Admin = () => {
     { id: 'users',    label: 'Users',        icon: Users },
     { id: 'reports',  label: 'Distribution', icon: FileText },
     { id: 'audit',    label: 'Audit Log',    icon: Flag },
+    { id: 'settings', label: 'Settings',     icon: Settings },  
+
   ];
+
+  const handleSaveSettings = async () => {
+      setSettingsSaving(true);
+      setSettingsMsg('');
+      try {
+          await api.patch('/admin/settings/claims', {
+              claimLimitIndividual:   settings.claimLimitIndividual,
+              claimLimitOrganization: settings.claimLimitOrganization,
+              windowDays:             settings.windowDays
+          });
+          setSettingsDirty(false);
+          setSettingsMsg('Settings saved successfully.');
+      } catch (err) {
+          setSettingsMsg(err.response?.data?.error || 'Failed to save settings.');
+      } finally {
+          setSettingsSaving(false);
+      }
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -477,7 +509,102 @@ const Admin = () => {
             </table>
           </div>
         )}
+        {/* ── SETTINGS TAB ── */}
+        {!loading && activeTab === 'settings' && (
+            <div className="max-w-lg">
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
+                    <h3 className="font-bold text-fb-dark text-lg mb-1">Claim Settings</h3>
+                    <p className="text-sm text-gray-500 mb-6">
+                        Adjust claim limits and rolling window for all recipients.
+                        Changes take effect immediately for all new claims.
+                    </p>
 
+                    <div className="space-y-5">
+                        {/* Individual claim limit */}
+                        <div>
+                            <label className="block text-sm font-semibold text-fb-dark mb-1">
+                                Individual Recipient Claim Limit
+                            </label>
+                            <p className="text-xs text-gray-400 mb-2">
+                                Maximum claims an individual recipient can make per rolling window. (1–20)
+                            </p>
+                            <input
+                                type="number" min={1} max={20}
+                                value={settings.claimLimitIndividual}
+                                onChange={e => {
+                                    setSettings(prev => ({ ...prev, claimLimitIndividual: parseInt(e.target.value) }));
+                                    setSettingsDirty(true);
+                                    setSettingsMsg('');
+                                }}
+                                className="w-full border-2 border-gray-200 rounded-xl px-4 py-2 text-sm
+                                          focus:border-fb-dark focus:outline-none"
+                            />
+                        </div>
+
+                        {/* Organization claim limit */}
+                        <div>
+                            <label className="block text-sm font-semibold text-fb-dark mb-1">
+                                Organization Recipient Claim Limit
+                            </label>
+                            <p className="text-xs text-gray-400 mb-2">
+                                Maximum claims an organization recipient can make per rolling window. (1–100)
+                            </p>
+                            <input
+                                type="number" min={1} max={100}
+                                value={settings.claimLimitOrganization}
+                                onChange={e => {
+                                    setSettings(prev => ({ ...prev, claimLimitOrganization: parseInt(e.target.value) }));
+                                    setSettingsDirty(true);
+                                    setSettingsMsg('');
+                                }}
+                                className="w-full border-2 border-gray-200 rounded-xl px-4 py-2 text-sm
+                                          focus:border-fb-dark focus:outline-none"
+                            />
+                        </div>
+
+                        {/* Window days */}
+                        <div>
+                            <label className="block text-sm font-semibold text-fb-dark mb-1">
+                                Rolling Window (Days)
+                            </label>
+                            <p className="text-xs text-gray-400 mb-2">
+                                Number of days in the rolling claim window. (1–30)
+                            </p>
+                            <input
+                                type="number" min={1} max={30}
+                                value={settings.windowDays}
+                                onChange={e => {
+                                    setSettings(prev => ({ ...prev, windowDays: parseInt(e.target.value) }));
+                                    setSettingsDirty(true);
+                                    setSettingsMsg('');
+                                }}
+                                className="w-full border-2 border-gray-200 rounded-xl px-4 py-2 text-sm
+                                          focus:border-fb-dark focus:outline-none"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Feedback message */}
+                    {settingsMsg && (
+                        <p className={`mt-4 text-sm font-medium ${
+                            settingsMsg.includes('success') ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                            {settingsMsg}
+                        </p>
+                    )}
+
+                    {/* Save button */}
+                    <button
+                        onClick={handleSaveSettings}
+                        disabled={!settingsDirty || settingsSaving}
+                        className="mt-6 w-full bg-fb-dark text-white font-bold py-3 rounded-xl
+                                  hover:bg-fb-light transition-colors disabled:opacity-40
+                                  disabled:cursor-not-allowed text-sm">
+                        {settingsSaving ? 'Saving...' : 'Save Settings'}
+                    </button>
+                </div>
+            </div>
+        )}
       </main>
     </div>
   );
