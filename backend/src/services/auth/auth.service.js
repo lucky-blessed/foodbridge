@@ -5,29 +5,54 @@ const jwt = require('jsonwebtoken');
 const User = require('../../models/User');
 
 class AuthService {
-    async register({ firstName, lastName, email, password, role }) {
+    async register({
+        firstName, lastName, email, password, role,
+        subRole, orgName, orgType, orgRegNumber,
+        ageRange, gender, profilePicUrl
+    }) {
         const existingUser = await User.findByEmail(email);
         if (existingUser) {
-            //throw new Error('An account with this email already exists.');
-            return {user: null, token: null}
+            return { user: null, token: null };
         }
-        
+    
+        // Server-side validation of conditional required fields
+        // Organization users must provide org_name and org_type
+        if (subRole === 'organization') {
+            if (!orgName || !orgType) {
+                throw new Error('Organization name and type are required for organization accounts.');
+            }
+        }
+    
+        // Individual recipients must provide age_range and gender for demographic reporting
+        if (role === 'recipient' && subRole !== 'organization') {
+            if (!ageRange || !gender) {
+                throw new Error('Age range and gender are required for individual recipient accounts.');
+            }
+        }
+    
         const passwordHash = await bcrypt.hash(password, 12);
-
+    
         const user = await User.create({
             firstName,
             lastName,
             email: email.toLowerCase().trim(),
             passwordHash,
-            role: role || 'recipient'
+            role:           role     || 'recipient',
+            subRole:        subRole  || 'individual',
+            orgName:        orgName  || null,
+            orgType:        orgType  || null,
+            orgRegNumber:   orgRegNumber || null,
+            ageRange:       ageRange || null,
+            gender:         gender   || null,
+            profilePicUrl:  profilePicUrl || null
         });
-
+    
         const token = jwt.sign(
             { userId: user.id, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
         );
-
+    
         return { user, token };
     }
 
@@ -124,16 +149,33 @@ class AuthService {
     }
 
     /**
-     * updateProfile - update firstName and lastName only
-     * Email and role are never changed here.
+     * updateProfile - update user profile fields
+     * Email, role, and sub_role are never changed here.
      * @param {string} userId
-     * @param {Object} fields - { firstName, lastName, location_lat, location_lng }
+     * @param {Object} fields - any combination of updatable fields
      */
-    async updateProfile(userId, { firstName, lastName, location_lat, location_lng }) {
-        if (!firstName && !lastName && location_lat === undefined && location_lng === undefined) {
+    async updateProfile(userId, {
+        firstName, lastName,
+        location_lat, location_lng,
+        orgName, orgType, orgRegNumber,
+        ageRange, gender, profilePicUrl
+    }) {
+        const hasAtLeastOne = firstName || lastName ||
+            location_lat !== undefined || location_lng !== undefined ||
+            orgName || orgType || orgRegNumber ||
+            ageRange || gender || profilePicUrl;
+
+        if (!hasAtLeastOne) {
             throw new Error('At least one field is required to update.');
         }
-        const updated = await User.update(userId, { firstName, lastName, location_lat, location_lng });
+
+        const updated = await User.update(userId, {
+            firstName, lastName,
+            location_lat, location_lng,
+            orgName, orgType, orgRegNumber,
+            ageRange, gender, profilePicUrl
+        });
+
         return updated;
     }
 
