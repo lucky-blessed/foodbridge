@@ -31,7 +31,7 @@ class ClaimController {
 
     async create(req, res) {
         try {
-            const { listingId } = req.body;
+            const { listingId, pin } = req.body;
 
             if (!listingId) {
                 return res.status(400).json({
@@ -48,7 +48,8 @@ class ClaimController {
 
             const result = await ClaimService.create(
                 req.user.id,
-                listingId
+                listingId,
+                pin
             );
 
             // ── ClaimConfirm notification → donor ────────────────────────
