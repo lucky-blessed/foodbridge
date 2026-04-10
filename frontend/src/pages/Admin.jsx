@@ -20,6 +20,22 @@ import {
   LayoutDashboard, List, Users, Flag,
   FileText, Search, Trash2, RefreshCw, Settings
 } from 'lucide-react';
+
+// Chart.js import
+import {
+  Chart as ChartJS,
+  CategoryScale, LinearScale,
+  BarElement, ArcElement,
+  Title, Tooltip, Legend
+} from 'chart.js';
+import { Bar, Doughnut } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale, LinearScale,
+  BarElement, ArcElement,
+  Title, Tooltip, Legend
+);
+
 import api from '../services/api';
 import Sidebar from '../components/Sidebar';
 
@@ -41,9 +57,22 @@ const Admin = () => {
   const [settingsSaving,setSettingsSaving]= useState(false);
   const [settingsMsg,   setSettingsMsg]  = useState('');
 
+  const [demographics,   setDemographics]   = useState(null);
+  const [demoLoading,    setDemoLoading]     = useState(false);
+  const [demoView,       setDemoView]        = useState('both');
+  const [demoRole,       setDemoRole]        = useState('all');
+  const [demoGender,     setDemoGender]      = useState('all');
+  const [demoAgeRange,   setDemoAgeRange]    = useState('all');
+
   useEffect(() => {
     fetchAll();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'demographics') {
+        fetchDemographics(demoView, demoRole, demoGender, demoAgeRange);
+    }
+}, [activeTab]);
 
   const fetchAll = async () => {
       setLoading(true);
@@ -183,7 +212,9 @@ const Admin = () => {
     { id: 'users',    label: 'Users',        icon: Users },
     { id: 'reports',  label: 'Distribution', icon: FileText },
     { id: 'audit',    label: 'Audit Log',    icon: Flag },
-    { id: 'settings', label: 'Settings',     icon: Settings },  
+    { id: 'settings', label: 'Settings',     icon: Settings }, 
+    { id: 'demographics', label: 'Demographics', icon: LayoutDashboard },
+ 
 
   ];
 
@@ -202,6 +233,22 @@ const Admin = () => {
           setSettingsMsg(err.response?.data?.error || 'Failed to save settings.');
       } finally {
           setSettingsSaving(false);
+      }
+  };
+
+
+  const fetchDemographics = async (view = demoView, role = demoRole, gender = demoGender, ageRange = demoAgeRange) => {
+      setDemoLoading(true);
+      try {
+          const params = { view, role };
+          if (gender   !== 'all') params.gender    = gender;
+          if (ageRange !== 'all') params.age_range = ageRange;
+          const res = await api.get('/admin/demographics', { params });
+          setDemographics(res.data);
+      } catch (err) {
+          console.error('Failed to fetch demographics:', err);
+      } finally {
+          setDemoLoading(false);
       }
   };
 
@@ -612,6 +659,242 @@ const Admin = () => {
                         {settingsSaving ? 'Saving...' : 'Save Settings'}
                     </button>
                 </div>
+          </div>
+        )}
+
+        {/* ── DEMOGRAPHICS TAB ── */}
+        {!loading && activeTab === 'demographics' && (
+            <div>
+                {/* Privacy notice */}
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
+                    🔒 Demographic data is anonymised and used for community planning purposes only.
+                    No personally identifiable information is shown.
+                </div>
+
+                {/* Filter bar */}
+                <div className="flex flex-wrap gap-3 mb-6 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                    <div>
+                        <label className="text-xs font-bold text-gray-500 block mb-1">View</label>
+                        <select value={demoView}
+                            onChange={e => { setDemoView(e.target.value); fetchDemographics(e.target.value, demoRole, demoGender, demoAgeRange); }}
+                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                            <option value="both">Both</option>
+                            <option value="individual">Individuals only</option>
+                            <option value="organization">Organizations only</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-gray-500 block mb-1">Role</label>
+                        <select value={demoRole}
+                            onChange={e => { setDemoRole(e.target.value); fetchDemographics(demoView, e.target.value, demoGender, demoAgeRange); }}
+                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                            <option value="all">All roles</option>
+                            <option value="donor">Donors only</option>
+                            <option value="recipient">Recipients only</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-gray-500 block mb-1">Gender</label>
+                        <select value={demoGender}
+                            onChange={e => { setDemoGender(e.target.value); fetchDemographics(demoView, demoRole, e.target.value, demoAgeRange); }}
+                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                            <option value="all">All genders</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="prefer_not_to_say">Prefer not to say</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-gray-500 block mb-1">Age Range</label>
+                        <select value={demoAgeRange}
+                            onChange={e => { setDemoAgeRange(e.target.value); fetchDemographics(demoView, demoRole, demoGender, e.target.value); }}
+                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                            <option value="all">All ages</option>
+                            <option value="under_18">Under 18</option>
+                            <option value="18_24">18 – 24</option>
+                            <option value="25_34">25 – 34</option>
+                            <option value="35_44">35 – 44</option>
+                            <option value="45_54">45 – 54</option>
+                            <option value="55_64">55 – 64</option>
+                            <option value="65_plus">65 and over</option>
+                        </select>
+                    </div>
+                    {/* Totals */}
+                    <div className="ml-auto flex items-end gap-4">
+                        <div className="text-center">
+                            <p className="text-2xl font-black text-fb-dark">{demographics?.totals?.individuals || 0}</p>
+                            <p className="text-xs text-gray-400 font-semibold uppercase">Individuals</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-2xl font-black text-fb-dark">{demographics?.totals?.organizations || 0}</p>
+                            <p className="text-xs text-gray-400 font-semibold uppercase">Organizations</p>
+                        </div>
+                    </div>
+                </div>
+
+                {demoLoading && (
+                    <div className="text-center text-gray-400 py-10">Loading demographic data...</div>
+                )}
+
+                {!demoLoading && demographics && (
+                    <div className="space-y-6">
+
+                        {/* ── INDIVIDUAL VIEW ── */}
+                        {demographics.individuals && (
+                            <>
+                                <h3 className="font-bold text-fb-dark text-base border-b pb-2">
+                                    Individual Users
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    {/* Gender doughnut */}
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                        <h4 className="font-bold text-fb-dark text-sm mb-4">By Gender</h4>
+                                        {demographics.individuals.byGender.length > 0 ? (
+                                            <div className="max-w-[220px] mx-auto">
+                                                <Doughnut
+                                                    data={{
+                                                        labels: demographics.individuals.byGender.map(g => g.gender),
+                                                        datasets: [{
+                                                            data: demographics.individuals.byGender.map(g => g.count),
+                                                            backgroundColor: ['rgba(64,145,108,0.8)', 'rgba(231,111,81,0.8)', 'rgba(41,128,185,0.8)'],
+                                                            borderWidth: 0
+                                                        }]
+                                                    }}
+                                                    options={{ responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }}
+                                                />
+                                            </div>
+                                        ) : <p className="text-gray-400 text-sm italic text-center py-8">No data yet.</p>}
+                                    </div>
+
+                                    {/* Age range bar */}
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                        <h4 className="font-bold text-fb-dark text-sm mb-4">By Age Range</h4>
+                                        {demographics.individuals.byAgeRange.length > 0 ? (
+                                            <Bar
+                                                data={{
+                                                    labels: demographics.individuals.byAgeRange.map(a => a.ageRange),
+                                                    datasets: [{
+                                                        data: demographics.individuals.byAgeRange.map(a => a.count),
+                                                        backgroundColor: 'rgba(64,145,108,0.8)',
+                                                        borderRadius: 4,
+                                                        borderWidth: 0
+                                                    }]
+                                                }}
+                                                options={{ responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }}
+                                            />
+                                        ) : <p className="text-gray-400 text-sm italic text-center py-8">No data yet.</p>}
+                                    </div>
+
+                                    {/* Role doughnut */}
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                        <h4 className="font-bold text-fb-dark text-sm mb-4">By Role</h4>
+                                        {demographics.individuals.byRole.length > 0 ? (
+                                            <div className="max-w-[220px] mx-auto">
+                                                <Doughnut
+                                                    data={{
+                                                        labels: demographics.individuals.byRole.map(r => r.role),
+                                                        datasets: [{
+                                                            data: demographics.individuals.byRole.map(r => r.count),
+                                                            backgroundColor: ['rgba(64,145,108,0.8)', 'rgba(231,111,81,0.8)', 'rgba(41,128,185,0.8)'],
+                                                            borderWidth: 0
+                                                        }]
+                                                    }}
+                                                    options={{ responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }}
+                                                />
+                                            </div>
+                                        ) : <p className="text-gray-400 text-sm italic text-center py-8">No data yet.</p>}
+                                    </div>
+                                </div>
+
+                                {/* Gender x Age matrix */}
+                                {demographics.individuals.genderAge.length > 0 && (
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                        <h4 className="font-bold text-fb-dark text-sm mb-4">Gender × Age Matrix</h4>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                                                    <tr>
+                                                        <th className="px-4 py-2 text-left">Gender</th>
+                                                        <th className="px-4 py-2 text-left">Age Range</th>
+                                                        <th className="px-4 py-2 text-left">Count</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {demographics.individuals.genderAge.map((row, i) => (
+                                                        <tr key={i} className="hover:bg-gray-50">
+                                                            <td className="px-4 py-2 capitalize">{row.gender}</td>
+                                                            <td className="px-4 py-2">{row.ageRange}</td>
+                                                            <td className="px-4 py-2 font-bold text-fb-dark">{row.count}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* ── ORGANIZATION VIEW ── */}
+                        {demographics.organizations && (
+                            <>
+                                <h3 className="font-bold text-fb-dark text-base border-b pb-2 mt-4">
+                                    Organizations
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    {/* Org type bar */}
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm md:col-span-2">
+                                        <h4 className="font-bold text-fb-dark text-sm mb-4">By Organization Type</h4>
+                                        {demographics.organizations.byType.length > 0 ? (
+                                            <Bar
+                                                data={{
+                                                    labels: demographics.organizations.byType.map(o => o.orgType),
+                                                    datasets: [{
+                                                        data: demographics.organizations.byType.map(o => o.count),
+                                                        backgroundColor: 'rgba(41,128,185,0.8)',
+                                                        borderRadius: 4,
+                                                        borderWidth: 0
+                                                    }]
+                                                }}
+                                                options={{ responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }}
+                                            />
+                                        ) : <p className="text-gray-400 text-sm italic text-center py-8">No data yet.</p>}
+                                    </div>
+
+                                    {/* Org role doughnut + active stat */}
+                                    <div className="space-y-4">
+                                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                            <h4 className="font-bold text-fb-dark text-sm mb-4">By Role</h4>
+                                            {demographics.organizations.byRole.length > 0 ? (
+                                                <div className="max-w-[180px] mx-auto">
+                                                    <Doughnut
+                                                        data={{
+                                                            labels: demographics.organizations.byRole.map(r => r.role),
+                                                            datasets: [{
+                                                                data: demographics.organizations.byRole.map(r => r.count),
+                                                                backgroundColor: ['rgba(64,145,108,0.8)', 'rgba(231,111,81,0.8)'],
+                                                                borderWidth: 0
+                                                            }]
+                                                        }}
+                                                        options={{ responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }}
+                                                    />
+                                                </div>
+                                            ) : <p className="text-gray-400 text-sm italic text-center py-4">No data yet.</p>}
+                                        </div>
+                                        <div className="bg-emerald-50 p-5 rounded-xl border border-emerald-100 text-center">
+                                            <p className="text-3xl font-black text-emerald-700">
+                                                {demographics.organizations.active30d}
+                                            </p>
+                                            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mt-1">
+                                                New orgs (30 days)
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
             </div>
         )}
       </main>

@@ -66,6 +66,10 @@ router.get('/stats',
 router.get('/audit-log',
     (req, res) => AdminController.getAuditLog(req, res));
 
+// GET /admin/demographics - anonymised demographic data for city planning
+router.get('/demographics',
+    (req, res) => AdminController.getDemographics(req, res));
+
 // -------Claim Settings---------
 // GET  /admin/settings/claims  - get current limits and window days
 router.get('/settings/claims',
