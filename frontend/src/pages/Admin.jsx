@@ -46,33 +46,42 @@ const Admin = () => {
   }, []);
 
   const fetchAll = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [statsRes, listingsRes, usersRes, reportRes, auditRes] = await Promise.all([
-        api.get('/admin/stats'),
-        api.get('/admin/listings?limit=50'),
-        api.get('/admin/users?limit=50'),
-        api.get('/admin/reports/distribution'),
-        api.get('/admin/audit-log?limit=20'),
-        api.get('/admin/settings/claims'),
+      setLoading(true);
+      setError('');
+      try {
+          const [statsRes, listingsRes, usersRes, reportRes, auditRes, settingsRes] =
+              await Promise.allSettled([
+                  api.get('/admin/stats'),
+                  api.get('/admin/listings?limit=50'),
+                  api.get('/admin/users?limit=50'),
+                  api.get('/admin/reports/distribution'),
+                  api.get('/admin/audit-log?limit=20'),
+                  api.get('/admin/settings/claims'),
+              ]);
 
-      ]);
-      setStats(statsRes.data);
-      setListings(listingsRes.data.listings || []);
-      setUsers(usersRes.data.users || []);
-      setReport(reportRes.data.report || []);
-      setAuditLog(auditRes.data.log || []);
-      setSettings({
-        claimLimitIndividual:   settingsRes.data.claimLimitIndividual,
-        claimLimitOrganization: settingsRes.data.claimLimitOrganization,
-        windowDays:             settingsRes.data.windowDays
-    });
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load admin data.');
-    } finally {
-      setLoading(false);
-    }
+          // Only update state for requests that succeeded
+          if (statsRes.status    === 'fulfilled') setStats(statsRes.value.data);
+          if (listingsRes.status === 'fulfilled') setListings(listingsRes.value.data.listings || []);
+          if (usersRes.status    === 'fulfilled') setUsers(usersRes.value.data.users || []);
+          if (reportRes.status   === 'fulfilled') setReport(reportRes.value.data.report || []);
+          if (auditRes.status    === 'fulfilled') setAuditLog(auditRes.value.data.log || []);
+          if (settingsRes.status === 'fulfilled') setSettings({
+              claimLimitIndividual:   settingsRes.value.data.claimLimitIndividual,
+              claimLimitOrganization: settingsRes.value.data.claimLimitOrganization,
+              windowDays:             settingsRes.value.data.windowDays
+          });
+
+          // Only show error if ALL critical requests failed
+          const criticalFailed = [statsRes, listingsRes, usersRes]
+              .every(r => r.status === 'rejected');
+          if (criticalFailed) {
+              setError('Failed to load admin data.');
+          }
+      } catch (err) {
+          setError('Failed to load admin data.');
+      } finally {
+          setLoading(false);
+      }
   };
 
   // ── Listing actions ───────────────────────────────

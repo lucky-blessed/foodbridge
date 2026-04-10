@@ -5,11 +5,44 @@
 
 const AuthService = require('./auth.service');
 
+const cloudinary = require('cloudinary').v2;
+const fs = require('fs');
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key:    process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+
+/**
+ * uploadProfilePic -> upload a profile picture to Cloudinary
+ * Deletes the temp file after upload regardless of success or failure.
+ * Returns the secure URL or null if no file was provided.
+ */
+const uploadProfilePic = async (file) => {
+    if (!file) return null;
+    try {
+        const result = await cloudinary.uploader.upload(file.path, {
+            folder: 'foodbridge/profiles',
+            transformation: [{ width: 200, height: 200, crop: 'fill', gravity: 'face' }]
+        });
+        return result.secure_url;
+    } finally {
+        // Always delete the temp file even if Cloudinary upload fails
+        fs.unlink(file.path, () => {});
+    }
+};
+
 class AuthController {
     // User registration
     async register(req, res) {
         try {
-            const { firstName, lastName, email, password, role } = req.body;
+            const {
+                firstName, lastName, email, password, role,
+                subRole, orgName, orgType, orgRegNumber,
+                ageRange, gender
+            } = req.body;
 
             if (!firstName || !lastName || !email || !password) {
                 return res.status(400).json({
@@ -17,7 +50,6 @@ class AuthController {
                     required: ['firstName', 'lastName', 'email', 'password']
                 });
             }
-            
 
             if (password.length < 8) {
                 return res.status(400).json({
@@ -38,8 +70,33 @@ class AuthController {
                 });
             }
 
+            if (subRole && !['individual', 'organization'].includes(subRole)) {
+                return res.status(400).json({
+                    error: 'Sub-role must be either individual or organization'
+                });
+            }
+
+            // Organization users must provide org name and type
+            if (subRole === 'organization' && (!orgName || !orgType)) {
+                return res.status(400).json({
+                    error: 'Organization name and type are required for organization accounts.'
+                });
+            }
+
+            // Individual recipients must provide age range and gender
+            if (role === 'recipient' && subRole !== 'organization' && (!ageRange || !gender)) {
+                return res.status(400).json({
+                    error: 'Age range and gender are required for individual recipient accounts.'
+                });
+            }
+
+            // Upload profile picture to Cloudinary if provided
+            const profilePicUrl = await uploadProfilePic(req.file);
+
             const { user, token } = await AuthService.register({
-                firstName, lastName, email, password, role
+                firstName, lastName, email, password, role,
+                subRole, orgName, orgType, orgRegNumber,
+                ageRange, gender, profilePicUrl
             });
 
             if (user !== null && token !== null) {
@@ -54,16 +111,20 @@ class AuthController {
                 });
             }
         } catch (error) {
+            console.error('[AuthController.register] ERROR:', error);
             if (error.message.includes('already exists')) {
                 return res.status(409).json({ error: error.message });
+            }
+            if (error.message.includes('required')) {
+                return res.status(400).json({ error: error.message });
             }
             return res.status(500).json({
                 error: 'Registration failed. Please try again.'
             });
-            
         }
     }
 
+    
     // Secure login and logout
     async login(req, res) {
         try {
@@ -154,35 +215,49 @@ class AuthController {
             return res.status(200).json({ user });
         } catch (error) {
             console.error('[AuthController.getProfile]', error);
-            return res.status(404),json({ error: error.message });
+            return res.status(404).json({ error: error.message });
         }
     }
 
     /**
-     * updateProfile - PATH /auth/profile
-     * protected: any authenticated user
-     * Body: { firstName, lastName }
+     * updateProfile - PATCH /auth/profile
+     * Protected: any authenticated user
+     * Body: any combination of updatable profile fields
      */
-
     async updateProfile(req, res) {
         try {
-            const { firstName, lastName, location_lat, location_lng } = req.body;
-            const user = await AuthService.updateProfile(
-                req.user.id,
-                { firstName, lastName, location_lat, location_lng }
-            ); return res.status(200).json({
+               const {
+                firstName, lastName,
+                location_lat, location_lng,
+                orgName, orgType, orgRegNumber,
+                ageRange, gender
+            } = req.body;
+
+            // Upload new profile picture to Cloudinary if one was attached
+            // profilePicUrl comes from the upload result, not req.body
+            const profilePicUrl = await uploadProfilePic(req.file);
+
+            const user = await AuthService.updateProfile(req.user.id, {
+                firstName, lastName,
+                location_lat, location_lng,
+                orgName, orgType, orgRegNumber,
+                ageRange, gender, profilePicUrl
+            });
+
+            return res.status(200).json({
                 message: 'Profile updated successfully.',
                 user
             });
+            
         } catch (error) {
             if (error.message.includes('required')) {
                 return res.status(400).json({ error: error.message });
             }
             console.error('[AuthController.updateProfile]', error);
-            return res.status(500).json({ error: 'Failed to update profile.' })
+            return res.status(500).json({ error: 'Failed to update profile.' });
         }
+        
     }
-
 
     /**
      * forgotPassword - POST /auth/forgot-password

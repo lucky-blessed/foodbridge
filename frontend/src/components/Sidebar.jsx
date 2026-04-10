@@ -73,15 +73,31 @@ const Sidebar = () => {
   return (
     <nav className="w-64 bg-fb-dark min-h-screen p-6 text-white flex flex-col">
 
-      {/* Logo */}
+      {/* Logo and Profile pics*/}
       <div className="mb-10">
         <h1 className="text-2xl font-bold">
           Food<span className="text-fb-coral">Bridge</span>
         </h1>
         {user && (
-          <p className="text-xs text-white/50 mt-1 capitalize">
-            {user.first_name} {user.last_name} — {user.role}
-          </p>
+          <div className="flex items-center gap-3 mt-3">
+            {/* Profile picture or initial avatar */}
+            {user.profile_pic_url ? (
+              <img
+                src={user.profile_pic_url}
+                alt="Profile"
+                className="w-9 h-9 rounded-full object-cover border-2 border-white/20 flex-shrink-0"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-fb-coral flex items-center justify-center
+                              text-white text-sm font-bold flex-shrink-0">
+                {user.first_name?.[0]?.toUpperCase()}
+              </div>
+            )}
+            <p className="text-xs text-white/50 capitalize leading-tight">
+              {user.first_name} {user.last_name}<br />
+              <span className="text-white/30">{user.role}</span>
+            </p>
+          </div>
         )}
       </div>
 

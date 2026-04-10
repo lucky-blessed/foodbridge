@@ -1,14 +1,26 @@
 // auth.routes.js maps URLs to controller functions
 
 const express = require('express');
+const multer  = require('multer');
 const AuthController = require('./auth.controller');
 const { authenticateJWT } = require('../../middleware/auth.middleware');
 
 const router = express.Router();
 
-// POST /auth/register
-router.post('/register', (req, res) => AuthController.register(req, res));
+// Multer config for profile picture uploads.
+// Matches the same pattern as listing.routes.js —> temp disk storage
+// before Cloudinary uploads and deletes the temp file.
+// Field name must be 'profilePic' on the frontend FormData.
+const upload = multer({
+    dest: 'uploads/',
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB — profile pics need less than listings
+});
 
+// POST /auth/register (accepts optional profilePic file)
+router.post('/register',
+    upload.single('profilePic'),
+    (req, res) => AuthController.register(req, res)
+);
 // POST /auth/login
 router.post('/login', (req, res) => AuthController.login(req, res));
 
@@ -26,6 +38,7 @@ router.get(
 router.patch(
     '/profile',
     authenticateJWT,
+    upload.single('profilePic'),
     (req, res) => AuthController.updateProfile(req, res)
 );
 
