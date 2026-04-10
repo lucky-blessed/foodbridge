@@ -17,8 +17,10 @@ const upload = multer({
 });
 
 // POST /auth/register (accepts optional profilePic file)
-router.post('/register', (req, res) => AuthController.register(req, res));
-
+router.post('/register',
+    upload.single('profilePic'),
+    (req, res) => AuthController.register(req, res)
+);
 // POST /auth/login
 router.post('/login', (req, res) => AuthController.login(req, res));
 

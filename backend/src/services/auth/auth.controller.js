@@ -111,6 +111,7 @@ class AuthController {
                 });
             }
         } catch (error) {
+            console.error('[AuthController.register] ERROR:', error);
             if (error.message.includes('already exists')) {
                 return res.status(409).json({ error: error.message });
             }
