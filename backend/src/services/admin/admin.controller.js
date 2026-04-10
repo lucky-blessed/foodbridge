@@ -163,6 +163,37 @@ class AdminController {
         }
     }
 
+    // ------- Demographics--------------
+
+    /**
+     * getDemographics - GET /admin/demographics
+     * Returns anonymised aggregate demographic data for city planning.
+     * Query params: view, role, gender, age_range
+     */
+    async getDemographics(req, res) {
+        try {
+            const filters = {
+                view:     req.query.view     || 'both',
+                role:     req.query.role     || 'all',
+                gender:   req.query.gender   || 'all',
+                ageRange: req.query.age_range || 'all',
+            };
+
+            if (!['individual', 'organization', 'both'].includes(filters.view)) {
+                return res.status(400).json({
+                    error: 'view must be individual, organization, or both.'
+                });
+            }
+
+            const DemographicsService = require('./demographics.service');
+            const result = await DemographicsService.getDemographics(filters);
+            return res.status(200).json(result);
+        } catch (error) {
+            console.error('[AdminController.getDemographics]', error);
+            return res.status(500).json({ error: 'Failed to fetch demographic data.' });
+        }
+    }
+
     // -------Claim Settings--------
 
     /**
