@@ -11,6 +11,7 @@ const listingRoutes = require('./services/listing/listing.routes');
 const claimRoutes = require('./services/claim/claim.routes');
 const adminRoutes = require('./services/admin/admin.routes');
 const notificationRoutes = require('./services/notification/notification.routes');
+const impactRoutes = require('./services/impact/impact.routes');
 
 // Create the express application
 const app = express();
@@ -112,6 +113,7 @@ app.use('/claims', claimRoutes);
 app.use('/admin', adminRoutes);
 
 app.use('/notifications', notificationRoutes);
+app.use('/impact', impactRoutes);
 
 app.get('/health', (req, res) => {
     res.json({
