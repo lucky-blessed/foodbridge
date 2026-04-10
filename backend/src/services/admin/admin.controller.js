@@ -162,6 +162,69 @@ class AdminController {
             return res.status(500).json({ error: 'Failed to fetch audit log.' });
         }
     }
+
+    // -------Claim Settings--------
+
+    /**
+     * getClaimSettings - GET /admin/settings/claims
+     * Returns current individual limit, org limit, and window days
+     */
+    async getClaimSettings(req, res) {
+        try {
+            const result = await AdminService.getClaimSettings();
+            return res.status(200).json(result);
+        } catch (error) {
+            console.error('[AdminController.getClaimSettings]', error);
+            return res.status(500).json({ error: 'Failed to fetch claim settings.' });
+        }
+    }
+
+    /**
+     * updateClaimSettings - PATCH /admin/settings/claims
+     * Body: { claimLimitIndividual, claimLimitOrganization, windowDays }
+     * Any combination accepted — at least one required
+     */
+    async updateClaimSettings(req, res) {
+        try {
+            const claimLimitIndividual = req.body.claimLimitIndividual !== undefined
+                ? parseInt(req.body.claimLimitIndividual, 10) : undefined;
+
+            const claimLimitOrganization = req.body.claimLimitOrganization !== undefined
+                ? parseInt(req.body.claimLimitOrganization, 10) : undefined;
+
+            const windowDays = req.body.windowDays !== undefined
+                ? parseInt(req.body.windowDays, 10) : undefined;
+
+            if (claimLimitIndividual === undefined &&
+                claimLimitOrganization === undefined &&
+                windowDays === undefined) {
+                return res.status(400).json({
+                    error: 'Provide at least one of: claimLimitIndividual, claimLimitOrganization, windowDays.'
+                });
+            }
+
+            const result = await AdminService.updateClaimSettings(
+                claimLimitIndividual,
+                claimLimitOrganization,
+                windowDays,
+                req.user.id
+            );
+
+            return res.status(200).json({
+                message: 'Claim settings updated successfully.',
+                settings: result
+            });
+
+        } catch (error) {
+            if (error.message.includes('must be')) {
+                return res.status(400).json({ error: error.message });
+            }
+            console.error('[AdminController.updateClaimSettings]', error);
+            return res.status(500).json({ error: 'Failed to update claim settings.' });
+        }
+    }
+
+    
 }
 
 module.exports = new AdminController();

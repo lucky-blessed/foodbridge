@@ -66,5 +66,14 @@ router.get('/stats',
 router.get('/audit-log',
     (req, res) => AdminController.getAuditLog(req, res));
 
+// -------Claim Settings---------
+// GET  /admin/settings/claims  - get current limits and window days
+router.get('/settings/claims',
+    (req, res) => AdminController.getClaimSettings(req, res));
+
+// PATCH /admin/settings/claims - update individual limit, org limit, or window days
+router.patch('/settings/claims',
+    (req, res) => AdminController.updateClaimSettings(req, res));
+
 
 module.exports = router;

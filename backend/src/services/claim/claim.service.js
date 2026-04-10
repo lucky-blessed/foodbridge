@@ -9,10 +9,13 @@
  *         logical operation. If either fails, we roll back both.
  *      2. Row-level locking (SELECT FOR UPDATE), prevents two recipients 
  *         from claiming the same listing at the exact same moment.
- *      3. Rolling 7-day window, we count claims from the last 7 days,
- *         not a fixed Mon-Sun week. The window slides with time.
+ *      3. Rolling window, we count claims from the last N days (configurable
+ *         by admin via platform_settings), not a fixed Mon-Sun week.
  *      4. Cancel boundary, 30 minutes before pickupStart, not pickupEnd.
  *         This gives the donor enough notice before they prepare.
+ *      5. Claim limits are sub-role aware. Individual recipients use
+ *         claim_limit_individual; organization recipients use
+ *         claim_limit_organization. Both are configurable by admin.
  * 
  * @author Lucky Nkwor
  */
@@ -20,42 +23,96 @@
 const FoodListing = require('../../models/Listing');
 const { pool } = require('../../config/database');
 
-const CLAIM_LIMIT = 3;
-const WINDOW_DAYS = 7;
-const CANCEL_CUTOFF_MIN = 30; // minutes before pickupStart
+const CANCEL_CUTOFF_MIN = 30; // minutes before pickupStart — not admin-configurable
+
+/**
+ * getClaimSettings - reads claim limit and window days from platform_settings
+ * 
+ * Selects the correct claim limit key based on the recipient's sub_role:
+ *   individual   -> claim_limit_individual   (default 3)
+ *   organization -> claim_limit_organization (default 10)
+ * 
+ * Falls back to safe hardcoded defaults if the DB query fails,
+ * so a settings table issue never breaks the claim flow.
+ * 
+ * @param {string} subRole - 'individual' or 'organization'
+ * @returns {{ CLAIM_LIMIT: number, WINDOW_DAYS: number }}
+ */
+const getClaimSettings = async (recipientId) => {
+    try {
+        // Attempt to read sub_role — this column won't exist until migration 009
+        // If the column doesn't exist yet, the catch block defaults to 'individual'
+        let subRole = 'individual';
+        try {
+            const subRoleResult = await pool.query(
+                `SELECT sub_role FROM users WHERE id = $1`,
+                [recipientId]
+            );
+            subRole = subRoleResult.rows[0]?.sub_role || 'individual';
+        } catch {
+            // sub_role column not yet added — treat everyone as individual
+            subRole = 'individual';
+        }
+
+        const limitKey = subRole === 'organization'
+            ? 'claim_limit_organization'
+            : 'claim_limit_individual';
+
+        const result = await pool.query(
+            `SELECT key, value FROM platform_settings
+             WHERE key IN ($1, 'window_days')`,
+            [limitKey]
+        );
+
+        const settings = {};
+        result.rows.forEach(row => {
+            settings[row.key] = parseInt(row.value, 10);
+        });
+
+        return {
+            CLAIM_LIMIT: settings[limitKey]       || (subRole === 'organization' ? 10 : 3),
+            WINDOW_DAYS: settings['window_days']  || 7
+        };
+    } catch {
+        return { CLAIM_LIMIT: 3, WINDOW_DAYS: 7 };
+    }
+};
 
 class ClaimService {
     /**
-     * create - automatically claim a food listing
+     * create - atomically claim a food listing
      * 
      * Transaction steps:
      *  1. BEGIN
-     *  2. Lock the listing row in claim_records (prevents race condition)
-     *  2. Count recipient's claim in last 7 days
-     *  3. Reject if at limit
-     *  5. Fetch the MongoDB listing and verify it still available
+     *  2. Read recipient sub_role and fetch claim settings from platform_settings
+     *  3. Count recipient's claims in the rolling window
+     *  4. Reject if at limit
+     *  5. Fetch the MongoDB listing and verify it is still available
      *  6. INSERT into claim_records
      *  7. UPDATE MongoDB listing status -> 'claimed'
      *  8. COMMIT
      * 
      * If anything throws between BEGIN and COMMIT, we ROLLBACK,
-     * and the listing stays available for other recipients 
+     * and the listing stays available for other recipients.
      * 
-     * @param (string) recipientId - UUID from req.user.id
-     * @param (string) listingId - MongoDB Object string
-     * @returns (Object) the created claim record
+     * @param {string} recipientId - UUID from req.user.id
+     * @param {string} listingId   - MongoDB ObjectId string
+     * @returns {Object} { claim, listing, remainingClaims }
      */
-
     async create(recipientId, listingId) {
 
+        // --0-- Read sub_role and claim settings before opening the transaction
+        // sub_role column will be NULL until migration 009 runs — falls back to 'individual'
+        // ✅ Fix
+        const { CLAIM_LIMIT, WINDOW_DAYS } = await getClaimSettings(recipientId);
 
         const client = await pool.connect();
 
         try {
-            await client.query('BEGIN')
+            await client.query('BEGIN');
 
-            // --1-- Rolling window cliam count------
-            // COUNT claims where this recipient claimed in the last 7 days.
+            // --1-- Rolling window claim count------
+            // COUNT claims where this recipient claimed within the configured window.
             // We only count 'active' and 'completed' — not 'cancelled'.
             // Cancelled claims still count toward the window (prevents gaming).
             const countResult = await client.query(
@@ -79,7 +136,7 @@ class ClaimService {
                         AND status IN ('active', 'completed')
                     ORDER BY claimed_at ASC
                     LIMIT 1`,
-                    [recipientId] 
+                    [recipientId]
                 );
                 const resetsAt = resetResult.rows[0]?.resets_at;
                 await client.query('ROLLBACK');
@@ -91,7 +148,7 @@ class ClaimService {
                 throw error;
             }
 
-            // --2-- Check MongoDB lisiting availability-----
+            // --2-- Check MongoDB listing availability-----
             // Check INSIDE the transaction so the status check and the
             // INSERT are part of the same atomic unit.
             const listing = await FoodListing.findById(listingId);
@@ -119,12 +176,12 @@ class ClaimService {
                     listing_id,
                     status,
                     claimed_at`,
-                    [recipientId, listingId]
+                [recipientId, listingId]
             );
 
             const claim = insertResult.rows[0];
 
-            //--4-- Update MongoDB listing status-----
+            // --4-- Update MongoDB listing status-----
             // Mark the listing as claimed so no other recipient sees it
             // as available. Also record who claimed it and when.
             await FoodListing.findByIdAndUpdate(
@@ -144,18 +201,17 @@ class ClaimService {
                 listing,
                 remainingClaims: CLAIM_LIMIT - (claimCount + 1)
             };
-            
+
         } catch (error) {
             // If we haven't already rolled back (limit/not-found cases above),
             // roll back now to undo any partial writes.
             try { await client.query('ROLLBACK'); } catch (_) {}
             throw error;
-            
+
         } finally {
             // Always release the client back to the pool,
             // even if an error was thrown.
             client.release();
-
         }
     }
 
@@ -166,10 +222,10 @@ class ClaimService {
      *      - Only the recipient who made the claim can cancel it.
      *      - Cancellation is only allowed more than 30 minutes before pickupStart.
      *      - Cancelled claims still count toward the rolling window (no gaming).
-     *      - Restores the listing status to 'available' in MongoDB
+     *      - Restores the listing status to 'available' in MongoDB.
      * 
-     * @param {string} claimId UUID from claim_records.id
-     * @param {string} recipientId Muct match claim_records.recipientId
+     * @param {string} claimId     - UUID from claim_records.id
+     * @param {string} recipientId - Must match claim_records.recipient_id
      */
     async cancel(claimId, recipientId) {
         // Fetch the claim from PostgreSQL
@@ -189,10 +245,10 @@ class ClaimService {
         }
 
         if (claim.status !== 'active') {
-            throw new Error(`Cannot cancle a claim with status: ${claim.status}.`);
+            throw new Error(`Cannot cancel a claim with status: ${claim.status}.`);
         }
 
-        // check the 30-minutes cutoff against pickupStart in MongoDB
+        // Check the 30-minute cutoff against pickupStart in MongoDB
         const listing = await FoodListing.findById(claim.listing_id);
 
         if (!listing) {
@@ -231,16 +287,14 @@ class ClaimService {
         return { message: 'Claim cancelled successfully. This listing is now available again.' };
     }
 
-
     /**
-     * getMyHistory - pagnated claim history for the recipient
+     * getMyHistory - paginated claim history for the recipient
      * 
-     * Returns claims with listing details joined from MongoDb
+     * Returns claims with listing details joined from MongoDB.
      * 
      * @param {string} recipientId
-     * @param {Object} claimes array * rolling window stats
+     * @returns {Array} claims enriched with listing details
      */
-
     async getMyHistory(recipientId) {
         // Get all claims for this recipient, newest first
         const result = await pool.query(
@@ -274,14 +328,18 @@ class ClaimService {
     /**
      * getRollingCount - current rolling window stats for the recipient
      * 
-     * Used by GET /claims/count - feeds the ClaimLimit.jsx UI.
+     * Used by GET /claims/count — feeds the ClaimLimit.jsx UI.
+     * Reads the correct limit from platform_settings based on sub_role.
      * 
      * @param {string} recipientId
-     * @param {Object} { count, limit, remaining, resetsAt }
+     * @returns {{ count, limit, remaining, resetsAt }}
      */
-
     async getRollingCount(recipientId) {
-        // Count active + completed claims in the window
+        // Read sub_role and settings before querying claim counts
+        // ✅ Fix
+        const { CLAIM_LIMIT, WINDOW_DAYS } = await getClaimSettings(recipientId);
+
+        // Count active + completed claims in the rolling window
         const countResult = await pool.query(
             `SELECT COUNT(*) AS count
             FROM claim_records
@@ -292,31 +350,29 @@ class ClaimService {
         );
 
         const count = parseInt(countResult.rows[0].count, 10);
-            
-            // Find when the window resets (when oldest qualifying claim exits)
-            let resetsAt = null;
-            if (count > 0) {
-                const resetResult = await pool.query(
-                    `SELECT claimed_at + INTERVAL '${WINDOW_DAYS} days' AS resets_at
-                    FROM claim_records
-                    WHERE recipient_id = $1
-                        AND status IN ('active', 'completed')
-                    ORDER BY claimed_at ASC
-                    LIMIT 1`,
-                    [recipientId]
-                );
 
-                resetsAt = resetResult.rows[0]?.resets_at || null;
-            }
-
-            return {
-                count,
-                limit: CLAIM_LIMIT,
-                remaining: Math.max(0, CLAIM_LIMIT - count),
-                resetsAt
-            };
+        // Find when the window resets (when oldest qualifying claim exits the window)
+        let resetsAt = null;
+        if (count > 0) {
+            const resetResult = await pool.query(
+                `SELECT claimed_at + INTERVAL '${WINDOW_DAYS} days' AS resets_at
+                FROM claim_records
+                WHERE recipient_id = $1
+                    AND status IN ('active', 'completed')
+                ORDER BY claimed_at ASC
+                LIMIT 1`,
+                [recipientId]
+            );
+            resetsAt = resetResult.rows[0]?.resets_at || null;
         }
+
+        return {
+            count,
+            limit:     CLAIM_LIMIT,
+            remaining: Math.max(0, CLAIM_LIMIT - count),
+            resetsAt
+        };
     }
+}
 
-
-    module.exports = new ClaimService();
+module.exports = new ClaimService();
