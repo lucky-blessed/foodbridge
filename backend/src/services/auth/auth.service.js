@@ -3,6 +3,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../../models/User');
+const crypto = require('crypto');
+
 
 class AuthService {
     async register({
@@ -186,34 +188,37 @@ class AuthService {
      */
     async forgotPassword(email) {
         const user = await User.findByEmail(email.toLowerCase().trim());
-
+    
         // Always return success even if email not found
-        // Prevents user enumeration, attacker can't tell if email exists
+        // Prevents user enumeration — attacker can't tell if email exists
         if (!user) return { message: 'If that email exists, a reset link has been sent.' };
-
-        // Generate a secure random token
-        const crypto = require('crypto');
+    
+        // Generate a secure random token — send raw token in email
         const token = crypto.randomBytes(32).toString('hex');
-
-        // Store token in DB with 1-hour expiry
-        // Delete any existing token for this user first
+    
+        // Hash the token before storing — if DB is breached, raw tokens are not exposed
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    
         const { pool } = require('../../config/database');
+    
+        // Delete any existing token for this user first
         await pool.query(
             `DELETE FROM password_reset_tokens WHERE user_id = $1`,
             [user.id]
         );
+    
+        // Store the HASH not the raw token
         await pool.query(
             `INSERT INTO password_reset_tokens (user_id, token, expires_at)
             VALUES ($1, $2, NOW() + INTERVAL '1 hour')`,
-            [user.id, token]
+            [user.id, tokenHash]
         );
-
-        // Send email
+    
+        // Send the RAW token in the email — user presents raw, we hash and compare
         const EmailService = require('./email.service');
         await EmailService.sendPasswordReset(user.email, user.first_name, token);
         return { message: 'If that email exists, a reset link has been sent.' };
     }
-
 
     /**
      * resetPassword - validate token and update password
@@ -224,42 +229,45 @@ class AuthService {
         if (!token || !newPassword) {
             throw new Error('Token and new password are required.');
         }
-
+    
         if (newPassword.length < 8) {
             throw new Error('Password must be at least 8 characters.');
         }
-
+    
+        // Hash the incoming token to compare against the stored hash
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    
         const { pool } = require('../../config/database');
-
-        // Find the token - must be usused and not expired
+    
+        // Find the hashed token — must be unused and not expired
         const result = await pool.query(
             `SELECT * FROM password_reset_tokens
             WHERE token = $1
                 AND used = FALSE
                 AND expires_at > NOW()`,
-                [token]
+            [tokenHash]
         );
-
+    
         const resetToken = result.rows[0];
         if (!resetToken) {
             throw new Error('Reset link is invalid or has expired.');
         }
-
+    
         // Hash the new password
         const passwordHash = await bcrypt.hash(newPassword, 12);
-
+    
         // Update the user's password
         await pool.query(
             `UPDATE users SET password_hash = $1 WHERE id = $2`,
             [passwordHash, resetToken.user_id]
         );
-
+    
         // Mark token as used so it cannot be reused
         await pool.query(
             `UPDATE password_reset_tokens SET used = TRUE WHERE id = $1`,
             [resetToken.id]
         );
-
+    
         return { message: 'Password reset successfully. You can now log in.' };
     }
 }

@@ -13,7 +13,15 @@ const router = express.Router();
 // Field name must be 'profilePic' on the frontend FormData.
 const upload = multer({
     dest: 'uploads/',
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB — profile pics need less than listings
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (allowed.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only JPEG, PNG, WebP, and GIF images are allowed.'), false);
+        }
+    }
 });
 
 // POST /auth/register (accepts optional profilePic file)

@@ -26,7 +26,7 @@ const Redis = require('ioredis');
 
 const redis = new Redis(process.env.REDIS_URL, {
     lazyConnect: true,
-    maxRetiesPerRequest: 3
+    maxRetriesPerRequest: 3
 });
 
 /**

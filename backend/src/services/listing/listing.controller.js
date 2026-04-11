@@ -12,6 +12,7 @@ const EmailService = require('../auth/email.service');
 const User = require('../../models/User');
 const { pool } = require('../../config/database');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
 
 class ListingController {
 
@@ -83,7 +84,7 @@ class ListingController {
                 req.file || null
             );
 
-            // ── NewListing notifications ──────────────────────────────────────
+            // ── NewListing notifications =========================================
             // Fire-and-forget: runs AFTER the 201 response is already decided.
             // A notification failure must never cause the listing creation to fail.
             // We query PostgreSQL for recipients with a saved location within 25 km
@@ -134,7 +135,7 @@ class ListingController {
                 // Log but never let this bubble up and affect the 201 response
                 console.error('[ListingController.create] notification dispatch error:', notifError.message);
             }
-            // ─────────────────────────────────────────────────────────────────
+            // ======================================
 
             return res.status(201).json({
                 message: 'Listing created successfully.',
