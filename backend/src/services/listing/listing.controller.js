@@ -11,6 +11,7 @@ const NotificationService = require('../notification/notification.service');
 const EmailService = require('../auth/email.service');
 const User = require('../../models/User');
 const { pool } = require('../../config/database');
+const bcrypt = require('bcryptjs');
 
 class ListingController {
 
@@ -289,7 +290,7 @@ class ListingController {
      */
     async confirmPickup(req, res) {
         try {
-            const { id } = req.params;
+            const { id, pin } = req.params;
 
             if (!id.match(/^[0-9a-fA-F]{24}$/)) {
                 return res.status(400).json({ error: 'Invalid listing ID format.' });
@@ -297,14 +298,15 @@ class ListingController {
 
             const result = await ListingService.confirmPickup(id, req.user.id);
 
+            let pinHash = await bcrypt.hash(pin, 12);
             // Email the recipient to confirm their pickup is complete
             try {
                 const listing = result.listing;
                 const claim = await pool.query(
                     `SELECT recipient_id FROM claim_records
-                    WHERE listing_id = $1 AND status = 'completed'
+                    WHERE listing_id = $1 AND pickup_pin_hash = $2 AND status = 'completed'
                     ORDER BY picked_up_at DESC LIMIT 1`,
-                    [id]
+                    [id, pinHash]
                 );
                 if (claim.rows[0]) {
                     const recipient = await User.findById(claim.rows[0].recipient_id);
@@ -317,6 +319,8 @@ class ListingController {
                             console.error('[confirmPickup] email failed:', err.message)
                         );
                     }
+                } else {
+                    return res.status(400).json({ error: 'Invalid PIN. Please check the PIN and try again.' });
                 }
             } catch (emailErr) {
                 console.error('[confirmPickup] email dispatch error:', emailErr.message);

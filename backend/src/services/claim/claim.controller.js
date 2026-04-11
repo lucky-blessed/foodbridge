@@ -84,7 +84,8 @@ class ClaimController {
                             donor.email,
                             donor.first_name,
                             listing.title,
-                            listing.pickupEnd
+                            listing.pickupEnd,
+                            pin
                         ).catch(err =>
                             console.error(
                                 '[ClaimController.create] claim email failed:',
