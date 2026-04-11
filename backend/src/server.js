@@ -6,6 +6,8 @@
  */
 
 require('dotenv').config();
+const path = require('path');
+const fs   = require('fs');
 
 const app = require('./app');
 const { connectDatabase } = require('./config/database');
@@ -105,6 +107,18 @@ const startServer = async () => {
         console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`Health check: http://localhost:${PORT}/health`);
     });
+
+    const cleanUploads = () => {
+        const dir = path.join(__dirname, '../uploads');
+        const oneHourAgo = Date.now() - 60 * 60 * 1000;
+        fs.readdirSync(dir).forEach(file => {
+            if (file === '.gitkeep') return;
+            const filePath = path.join(dir, file);
+            const stat = fs.statSync(filePath);
+            if (stat.mtimeMs < oneHourAgo) fs.unlinkSync(filePath);
+        });
+    };
+    cron.schedule('0 * * * *', cleanUploads); // every hour
 };
 
 startServer();

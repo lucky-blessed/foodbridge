@@ -10,6 +10,7 @@
 const FoodListing = require('../../models/Listing');
 const cloudinary = require('cloudinary').v2;
 const { pool } = require('../../config/database');
+const fs = require('fs');
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -39,12 +40,16 @@ class ListingService {
         // upload photo to cloudinary
         // If donor attached photo, we upload to cloudinary and store the return URL in the listing
         if (file) {
-            const uploaded = await cloudinary.uploader.upload(file.path, {
-                folder: 'foodbridge/listings',
-                transformation: [{ width: 800, height: 600, crop: 'limit' }]
-                // Resizing to save storage
-            });
-            photoUrl = uploaded.secure_url;
+            try {
+                const uploaded = await cloudinary.uploader.upload(file.path, {
+                    folder: 'foodbridge/listings',
+                    transformation: [{ width: 800, height: 600, crop: 'limit' }]
+                });
+                photoUrl = uploaded.secure_url;
+            } finally {
+                // Always delete the temp file whether upload succeeded or failed
+                fs.unlink(file.path, () => {});
+            }
         }
 
         // Create the listing in MongoDB

@@ -241,7 +241,10 @@ class EmailService {
      */
     async verifyConnection() {
         await transporter.verify();
-        console.log('Email service connected.');
+
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('Email service connected.');
+        }
     }
 }
 

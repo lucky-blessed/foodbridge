@@ -154,8 +154,8 @@ const requireRole = (...roles) => {
         // Check if the user's role is in the list of allowed roles
         if (!roles.includes(req.user.role)) {
             return res.status(403).json({
-                error: `Access denied. This action requires ${roles.join(' or ')} role.`,
-                yourRole: req.user.role
+                error: `Access denied. This action requires ${roles.join(' or ')} role.`
+                // yourRole: req.user.role
                 // 403 Forbidden - authenticated but not authorised
             });
         }

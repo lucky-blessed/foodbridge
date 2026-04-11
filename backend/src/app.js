@@ -1,4 +1,5 @@
 const express = require('express');
+const fs = require('fs');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -16,6 +17,20 @@ const impactRoutes = require('./services/impact/impact.routes');
 // Create the express application
 const app = express();
 
+// Trust Render's proxy so rate limiting uses the real client IP
+app.set('trust proxy', 1);
+
+// Force HTTPS in production — Render terminates SSL at the proxy
+// and sets x-forwarded-proto header to indicate the original protocol
+if (process.env.NODE_ENV === 'production') {
+    app.use((req, res, next) => {
+        if (req.header('x-forwarded-proto') !== 'https') {
+            return res.redirect(301, `https://${req.header('host')}${req.url}`);
+        }
+        next();
+    });
+}
+
 // -------Security Handlers-------------
 // Helmet sets 14 security related HTTP headers automatically
 
@@ -30,11 +45,11 @@ app.use(helmet());
 // cors allows your React frontend (on a different port/domain) to
 // send requests to this backend — without this, browsers block it
 
-app.use(cors({
-    origin: [ process.env.CLIENT_URL || 'http://localhost:5173', 'http://localhost:5174' ],
-    credentials: true
-}));
+const allowedOrigins = process.env.NODE_ENV === 'production'
+    ? [process.env.CLIENT_URL]
+    : ['http://localhost:5173', 'http://localhost:5174'];
 
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 
 // ------Rate Limiting------------
 // Global limiter: 100 request per 15 minutes per IP
@@ -89,7 +104,7 @@ app.use(hpp({
 // app.use(express.json());
 
 // --------Logging----------
-app.use(morgan('dev'));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // ---------Routes-------------
 // Health check: a simple endpoint to confirm the server is running
@@ -115,13 +130,14 @@ app.use('/admin', adminRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/impact', impactRoutes);
 
+
 app.get('/health', (req, res) => {
     res.json({
         status: 'Ok',
         project: 'FoodBridge',
         team: 'ShareBite',
         timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development'
+   //     environment: process.env.NODE_ENV || 'development'
     });
 });
 
@@ -134,6 +150,24 @@ app.use((req, res) => {
     });
 });
 
+// ------Global error handler-----
+// Catches errors passed via next(err) including multer file type rejections
+app.use((err, req, res, next) => {
+    // Clean up any temp file if multer error occurs mid-upload
+    if (req.file) fs.unlink(req.file.path, () => {});
+
+    // Multer file type rejection
+    if (err.message?.includes('Only JPEG')) {
+        return res.status(400).json({ error: err.message });
+    }
+
+    console.error('[GlobalError]', err);
+    return res.status(500).json({
+        error: process.env.NODE_ENV === 'production'
+            ? 'An unexpected error occurred.'
+            : err.message
+    });
+});
 
 
 
