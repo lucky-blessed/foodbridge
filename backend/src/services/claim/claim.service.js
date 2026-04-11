@@ -167,7 +167,7 @@ class ClaimService {
             }
 
             // --3-- Insert claim record-----
-            const pinHash = bcrypt.hash(pin, 12); // TODO: implement PIN generation and hashing
+            let pinHash = await bcrypt.hash(pin, 12);
             const insertResult = await client.query(
                 `INSERT INTO claim_records
                     (recipient_id, listing_id, status, claimed_at, pickup_pin_hash)

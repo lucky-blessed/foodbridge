@@ -80,9 +80,9 @@ export const deleteListing = async (id) => {
 };
 /**
  * confirmPickup — donor confirms the recipient picked up the food
- * Calls PATCH /listings/:id/confirm
+ * Calls PATCH /listings/:id/:pin/confirm/
  */
-export const confirmPickup = async (listingId) => {
-    const response = await api.patch(`/listings/${listingId}/confirm`);
+export const confirmPickup = async (listingId, pin) => {
+    const response = await api.patch(`/listings/${listingId}/${pin}/confirm`);
     return response.data;
 };

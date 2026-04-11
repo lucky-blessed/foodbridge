@@ -84,8 +84,9 @@ class EmailService {
      * @param {string} firstName    - donor's first name
      * @param {string} listingTitle - title of the claimed listing
      * @param {string} pickupEnd    - pickup window close time (ISO string)
+     * @param {string} pin          - the PIN for the claimed listing
      */
-    async sendClaimNotification(toEmail, firstName, listingTitle, pickupEnd) {
+    async sendClaimNotification(toEmail, firstName, listingTitle, pickupEnd, pin) {
         const pickupTime = new Date(pickupEnd).toLocaleString('en-CA', {
             dateStyle: 'medium', timeStyle: 'short'
         });
@@ -109,6 +110,11 @@ class EmailService {
                         <div style="background: #D8F3DC; border-radius: 8px; padding: 16px 20px; margin: 24px 0;">
                             <p style="margin: 0; color: #1B4332; font-size: 14px;">
                                 🕐 &nbsp;<strong>Pickup deadline:</strong> ${pickupTime}
+                            </p>
+                        </div>
+                        <div style="background: #D8F3DC; border-radius: 8px; padding: 16px 20px; margin: 24px 0;">
+                            <p style="margin: 0; color: #1B4332; font-size: 14px;">
+                                🕐 &nbsp;<strong>your PIN:</strong> ${pin}
                             </p>
                         </div>
                         <p style="color: #6B7C74; font-size: 13px; line-height: 1.6;">

@@ -36,10 +36,10 @@ const Dashboard = () => {
     }
   };
 
-  const handleConfirmPickup = async (id) => {
+  const handleConfirmPickup = async (id, pin) => {
     if (!window.confirm('Confirm that the recipient has picked up this donation?')) return;
     try {
-      await confirmPickup(id);
+      await confirmPickup(id, pin);
       setListings(prev => prev.map(l =>
         l._id === id ? { ...l, status: 'completed' } : l
       ));
@@ -67,6 +67,8 @@ const Dashboard = () => {
     expired:    'text-red-500 bg-red-50',
     hidden:     'text-yellow-600 bg-yellow-50',
   };
+
+  const [pinValues, setPinValues] = useState({});
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -159,13 +161,19 @@ const Dashboard = () => {
                           Delete
                         </button>
                       )}
-                      {listing.status === 'claimed' && (
-                        <button
-                          onClick={() => handleConfirmPickup(listing._id)}
-                          className="text-green-600 hover:text-green-800 text-xs font-semibold">
-                          Confirm Pickup
-                        </button>
-                      )}
+
+                {listing.status === 'claimed' && 
+                (<input type="text" placeholder="PIN" value={pinValues[listing._id] || ''} onChange={(e) => setPinValues({...pinValues, [listing._id]: e.target.value})}
+                    className="p-1 border rounded-sm text-sm w-12 text-center hidden sm:block"/>
+                  )}
+                {listing.status === 'claimed' && (
+                <button
+                  onClick={() => handleConfirmPickup(listing._id, pinValues[listing._id])}
+                  className="text-green-600 hover:text-green-800 text-xs font-semibold whitespace-nowrap"
+                >
+                  Verify Pickup
+                </button>
+              )}
                     </td>
                   </tr>
                 ))}
