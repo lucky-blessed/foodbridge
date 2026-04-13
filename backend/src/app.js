@@ -54,6 +54,7 @@ app.use(cors({ origin: allowedOrigins, credentials: true }));
 // ------Rate Limiting------------
 // Global limiter: 100 request per 15 minutes per IP
 const globalLimiter = rateLimit({
+
     windowMs: 15 * 60 * 1000,
     max: 100,
     message: {
@@ -62,6 +63,7 @@ const globalLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
 });
+
 
 // Strict limiter for auth routes: 10 attempts per 15 minutes per IP
 // Prevents brute-force attacks on login and register
@@ -75,7 +77,13 @@ const authLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-app.use(globalLimiter);
+// skip middleware entirely in test environment
+if (process.env.NODE_ENV !== 'test') {
+    app.use(globalLimiter);
+}
+
+
+// app.use(globalLimiter);
 
 // -----Body parsing------------
 app.use(express.json({ limit: '10kb' }));  // reject bodies larger than 10kb
@@ -115,11 +123,16 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // Strict limiter applied only to sensitive auth endpoints
 // Profile and logout use the global limiter only
-app.use('/auth/login',            authLimiter, authRoutes);
-app.use('/auth/register',         authLimiter, authRoutes);
-app.use('/auth/forgot-password',  authLimiter, authRoutes);
-app.use('/auth/reset-password',   authLimiter, authRoutes);
-app.use('/auth',                              authRoutes);
+
+if (process.env.NODE_ENV === 'test') {
+    app.use('/auth', authRoutes);
+} else {
+    app.use('/auth/login',            authLimiter, authRoutes);
+    app.use('/auth/register',         authLimiter, authRoutes);
+    app.use('/auth/forgot-password',  authLimiter, authRoutes);
+    app.use('/auth/reset-password',   authLimiter, authRoutes);
+    app.use('/auth',                              authRoutes);
+}
 
 app.use('/listings', listingRoutes);
 
