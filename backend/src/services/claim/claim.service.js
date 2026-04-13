@@ -23,6 +23,7 @@
 const bcrypt = require('bcryptjs');
 const FoodListing = require('../../models/Listing');
 const { pool } = require('../../config/database');
+const crypto = require('crypto');
 
 const CANCEL_CUTOFF_MIN = 30; // minutes before pickupStart — not admin-configurable
 
@@ -101,7 +102,7 @@ class ClaimService {
      * @returns {Object} { claim, listing, remainingClaims }
      */
 
-    async create(recipientId, listingId, pin) {
+    async create(recipientId, listingId) {
         // --0-- Read sub_role and claim settings before opening the transaction
         // sub_role column will be NULL until migration 009 runs — falls back to 'individual'
         // ✅ Fix
@@ -167,8 +168,8 @@ class ClaimService {
             }
 
             // --3-- Insert claim record-----
-            let pinHash = await bcrypt.hash(pin, 12);
-            const insertResult = await client.query(
+            const pin = Math.floor(100000 + Math.random() * 900000).toString();
+            const pinHash = await bcrypt.hash(pin, 12);            const insertResult = await client.query(
                 `INSERT INTO claim_records
                     (recipient_id, listing_id, status, claimed_at, pickup_pin_hash)
                 VALUES ($1, $2, 'active', NOW(), $3)
@@ -201,6 +202,7 @@ class ClaimService {
             return {
                 claim,
                 listing,
+                pin,
                 remainingClaims: CLAIM_LIMIT - (claimCount + 1)
             };
 
