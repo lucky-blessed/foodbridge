@@ -90,24 +90,13 @@ const Discover = () => {
     }
   };
 
-  const generatePin = (listingId) => {
-    const randomNum = Math.floor(Math.random() * 1000000);
-    return randomNum.toString().padStart(6, '0');
-  }
-
+ // handleClaim — PIN comes from server response
   const handleClaim = async (listingId) => {
-    const pin = generatePin(listingId);
-
     setClaiming(listingId);
     try {
-      await claimListing(listingId, pin);
-      
-      // Capture details before removing from state
-      const claimedItem = listings.find(l => l._id === listingId);
-      setLastClaimed({ pin: pin, title: claimedItem?.title });
-      
-      setListings(prev => prev.filter(l => l._id !== listingId));
-      setSelected(null);
+        const result = await claimListing(listingId);
+        const claimedItem = listings.find(l => l._id === listingId);
+        setLastClaimed({ pin: result.pin, title: claimedItem?.title });
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to claim listing.');
     } finally {

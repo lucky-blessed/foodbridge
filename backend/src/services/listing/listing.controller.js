@@ -292,55 +292,90 @@ class ListingController {
     async confirmPickup(req, res) {
         try {
             const { id, pin } = req.params;
-
+    
             if (!id.match(/^[0-9a-fA-F]{24}$/)) {
                 return res.status(400).json({ error: 'Invalid listing ID format.' });
             }
-
+    
+            if (!pin) {
+                return res.status(400).json({ error: 'PIN is required.' });
+            }
+    
+            // --1-- Find the active claim for this listing
+            const claimResult = await pool.query(
+                `SELECT id, recipient_id, pickup_pin_hash, pin_attempts
+                 FROM claim_records
+                 WHERE listing_id = $1 AND status = 'active'
+                 ORDER BY claimed_at DESC LIMIT 1`,
+                [id]
+            );
+    
+            if (!claimResult.rows[0]) {
+                return res.status(404).json({ error: 'No active claim found for this listing.' });
+            }
+    
+            const claim = claimResult.rows[0];
+    
+            // --2-- Check attempt limit
+            if (claim.pin_attempts >= 3) {
+                return res.status(400).json({
+                    error: 'Too many incorrect PIN attempts. Please contact support.'
+                });
+            }
+    
+            // --3-- Validate PIN using bcrypt.compare (not bcrypt.hash)
+            const pinValid = await bcrypt.compare(pin, claim.pickup_pin_hash);
+    
+            if (!pinValid) {
+                // Increment attempt counter
+                await pool.query(
+                    `UPDATE claim_records SET pin_attempts = pin_attempts + 1 WHERE id = $1`,
+                    [claim.id]
+                );
+                const remaining = 2 - claim.pin_attempts;
+                return res.status(400).json({
+                    error: `Incorrect PIN. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`
+                });
+            }
+    
+            // --4-- PIN is valid — now confirm the pickup
             const result = await ListingService.confirmPickup(id, req.user.id);
-
-            let pinHash = await bcrypt.hash(pin, 12);
-            // Email the recipient to confirm their pickup is complete
+    
+            // --5-- Clear the PIN hash after successful verification (single use)
+            await pool.query(
+                `UPDATE claim_records
+                 SET pickup_pin_hash = NULL, pin_attempts = 0
+                 WHERE id = $1`,
+                [claim.id]
+            );
+    
+            // --6-- Email the recipient
             try {
                 const listing = result.listing;
-                const claim = await pool.query(
-                    `SELECT recipient_id FROM claim_records
-                    WHERE listing_id = $1 AND pickup_pin_hash = $2 AND status = 'completed'
-                    ORDER BY picked_up_at DESC LIMIT 1`,
-                    [id, pinHash]
-                );
-                if (claim.rows[0]) {
-                    const recipient = await User.findById(claim.rows[0].recipient_id);
-                    if (recipient) {
-                        EmailService.sendPickupConfirmed(
-                            recipient.email,
-                            recipient.first_name,
-                            listing.title
-                        ).catch(err =>
-                            console.error('[confirmPickup] email failed:', err.message)
-                        );
-                    }
-                } else {
-                    return res.status(400).json({ error: 'Invalid PIN. Please check the PIN and try again.' });
+                const recipient = await User.findById(claim.recipient_id);
+                if (recipient) {
+                    EmailService.sendPickupConfirmed(
+                        recipient.email,
+                        recipient.first_name,
+                        listing.title
+                    ).catch(err =>
+                        console.error('[confirmPickup] email failed:', err.message)
+                    );
                 }
             } catch (emailErr) {
                 console.error('[confirmPickup] email dispatch error:', emailErr.message);
             }
-            
+    
             return res.status(200).json(result);
-
+    
         } catch (error) {
-            if (!error || !error.message) {
-                console.error('[ListingController.confirmPickup] Unknown error');
-                return res.status(500).json({ error: 'Failed to confirm pickup.'});
-            }
-            if (error.message.includes('No active claim')) {
+            if (error.message?.includes('No active claim')) {
                 return res.status(403).json({ error: error.message });
             }
-            if (error.message.includes('not found')) {
+            if (error.message?.includes('not found')) {
                 return res.status(404).json({ error: error.message });
             }
-            if (error.message.includes('Cannot confirm')) {
+            if (error.message?.includes('Cannot confirm')) {
                 return res.status(400).json({ error: error.message });
             }
             console.error('[ListingController.confirmPickup]', error);

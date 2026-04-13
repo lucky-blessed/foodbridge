@@ -31,7 +31,7 @@ class ClaimController {
 
     async create(req, res) {
         try {
-            const { listingId, pin } = req.body;
+            const { listingId } = req.body;
 
             if (!listingId) {
                 return res.status(400).json({
@@ -49,7 +49,6 @@ class ClaimController {
             const result = await ClaimService.create(
                 req.user.id,
                 listingId,
-                pin
             );
 
             // ── ClaimConfirm notification → donor ────────────────────────
@@ -85,7 +84,7 @@ class ClaimController {
                             donor.first_name,
                             listing.title,
                             listing.pickupEnd,
-                            pin
+                            result.pin
                         ).catch(err =>
                             console.error(
                                 '[ClaimController.create] claim email failed:',
@@ -122,6 +121,7 @@ class ClaimController {
             return res.status(201).json({
                 message: 'Listing claimed successfully.',
                 claim: result.claim,
+                pin: result.pin,
                 remainingClaims: result.remainingClaims
             });
         } catch (error) {
