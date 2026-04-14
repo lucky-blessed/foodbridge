@@ -49,4 +49,13 @@ router.delete(
     (req, res) => ClaimController.cancel(req, res)
 );
 
+
+// PATCH /claims/:id/reschedule - reschedule pickup time
+router.patch(
+    '/:id/reschedule',
+    authenticateJWT,
+    requireRole('recipient'),
+    (req, res) => ClaimController.reschedule(req, res)
+);
+
 module.exports = router;

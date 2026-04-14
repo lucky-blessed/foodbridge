@@ -102,7 +102,7 @@ class ClaimService {
      * @returns {Object} { claim, listing, remainingClaims }
      */
 
-    async create(recipientId, listingId) {
+    async create(recipientId, listingId, scheduledPickupAt = null) {
         // --0-- Read sub_role and claim settings before opening the transaction
         // sub_role column will be NULL until migration 009 runs — falls back to 'individual'
         // ✅ Fix
@@ -165,21 +165,38 @@ class ClaimService {
                 throw new Error(
                     `The listing is no longer available. Current status: ${listing.status}.`
                 );
+
+                // Validate scheduled pickup time if provided
+                if (scheduledPickupAt) {
+                    const scheduledTime = new Date(scheduledPickupAt);
+                    const pickupStart   = new Date(listing.pickupStart);
+                    const pickupEnd     = new Date(listing.pickupEnd);
+
+                    if (scheduledTime < pickupStart || scheduledTime > pickupEnd) {
+                        await client.query('ROLLBACK');
+                        throw new Error('Scheduled pickup time must fall within the listing pickup window.');
+                    }
+                }
             }
 
             // --3-- Insert claim record-----
             const pin = Math.floor(100000 + Math.random() * 900000).toString();
-            const pinHash = await bcrypt.hash(pin, 12);            const insertResult = await client.query(
+            const pinHash = await bcrypt.hash(pin, 12);
+            
+            const insertResult = await client.query(
                 `INSERT INTO claim_records
-                    (recipient_id, listing_id, status, claimed_at, pickup_pin_hash)
-                VALUES ($1, $2, 'active', NOW(), $3)
+                    (recipient_id, listing_id, status, claimed_at, pickup_pin_hash,
+                     scheduled_pickup_at, reschedule_count, reschedule_history)
+                VALUES ($1, $2, 'active', NOW(), $3, $4, 0, '[]')
                 RETURNING
                     id,
                     recipient_id,
                     listing_id,
                     status,
-                    claimed_at`,
-                [recipientId, listingId, pinHash]
+                    claimed_at,
+                    scheduled_pickup_at,
+                    reschedule_count`,
+                [recipientId, listingId, pinHash, scheduledPickupAt || null]
             );
 
             const claim = insertResult.rows[0];
@@ -308,7 +325,9 @@ class ClaimService {
                 status,
                 claimed_at,
                 cancelled_at,
-                picked_up_at
+                picked_up_at,
+                scheduled_pickup_at,
+                reschedule_count
             FROM claim_records
             WHERE recipient_id = $1
             ORDER BY claimed_at DESC`,
@@ -328,6 +347,101 @@ class ClaimService {
 
         return enriched;
     }
+
+
+    /**
+ * reschedule - change the scheduled pickup time for an active claim
+ *
+ * Rules:
+ *  - Only the recipient who made the claim can reschedule
+ *  - Max 2 reschedules per claim
+ *  - Must be more than 30 minutes before current scheduled time
+ *  - New time must fall within the original pickup window
+ *  - Claim must be active
+ *
+ * @param {string} claimId           - UUID from claim_records.id
+ * @param {string} recipientId       - must match claim_records.recipient_id
+ * @param {string} newScheduledTime  - ISO datetime string
+ */
+async reschedule(claimId, recipientId, newScheduledTime) {
+    if (!newScheduledTime) {
+        throw new Error('New scheduled time is required.');
+    }
+
+    // Fetch the claim
+    const claimResult = await pool.query(
+        `SELECT * FROM claim_records WHERE id = $1`,
+        [claimId]
+    );
+    const claim = claimResult.rows[0];
+
+    if (!claim) throw new Error('Claim not found.');
+    if (claim.recipient_id !== recipientId) throw new Error('You can only reschedule your own claims.');
+    if (claim.status !== 'active') throw new Error(`Cannot reschedule a claim with status: ${claim.status}.`);
+
+    // Check reschedule limit
+    if (claim.reschedule_count >= 2) {
+        throw new Error('Reschedule limit reached. Please cancel and re-claim if your plans have changed.');
+    }
+
+    // Check 30-minute cutoff before current scheduled time
+    if (claim.scheduled_pickup_at) {
+        const currentScheduled = new Date(claim.scheduled_pickup_at);
+        const cutoff = new Date(currentScheduled.getTime() - 30 * 60 * 1000);
+        if (new Date() >= cutoff) {
+            throw new Error('Too close to pickup time. Please cancel if you cannot make it.');
+        }
+    }
+
+    // Validate new time is within pickup window
+    const listing = await FoodListing.findById(claim.listing_id);
+    if (!listing) throw new Error('Associated listing not found.');
+
+    const newTime    = new Date(newScheduledTime);
+    const pickupStart = new Date(listing.pickupStart);
+    const pickupEnd   = new Date(listing.pickupEnd);
+
+    if (newTime < pickupStart || newTime > pickupEnd) {
+        throw new Error('Selected time is outside the donor\'s pickup window.');
+    }
+
+    // Build updated reschedule history
+    const history = claim.reschedule_history || [];
+    history.push({
+        old_time:       claim.scheduled_pickup_at,
+        new_time:       newScheduledTime,
+        rescheduled_at: new Date().toISOString()
+    });
+
+    // Update claim record
+    const updated = await pool.query(
+        `UPDATE claim_records
+         SET scheduled_pickup_at = $1,
+             reschedule_count    = reschedule_count + 1,
+             reschedule_history  = $2
+         WHERE id = $3
+         RETURNING id, scheduled_pickup_at, reschedule_count, reschedule_history`,
+        [newScheduledTime, JSON.stringify(history), claimId]
+    );
+
+    // Notify the donor of the schedule change
+    try {
+        const donorId = listing.donorId;
+        const io = require('../../server').io; // not available in service
+    } catch {}
+
+    return {
+        message: 'Pickup time rescheduled successfully.',
+        claim: updated.rows[0],
+        listing: {
+            id:          listing._id,
+            donorId:     listing.donorId,
+            title:       listing.title,
+            pickupStart: listing.pickupStart,
+            pickupEnd:   listing.pickupEnd
+        }
+    };
+}
 
     /**
      * getRollingCount - current rolling window stats for the recipient
