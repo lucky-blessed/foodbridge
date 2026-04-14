@@ -9,9 +9,10 @@ const mongoose = require('mongoose');
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
+    ssl: { rejectUnauthorized: false },
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
 });
 
 
@@ -33,8 +34,10 @@ const connectPostgres = async () => {
 // ------MongoDB--------
 const connectMongo = async () => {
     try {
-        await mongoose.connect(process.env.MONGODB_URI);
-        console.log('MongoDB connected.');
+        await mongoose.connect(process.env.MONGODB_URI, {
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+        });        console.log('MongoDB connected.');
     } catch (error) {
         console.error('MongoDB connection failed:', error.message);
         process.exit(1);

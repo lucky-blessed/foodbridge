@@ -425,11 +425,12 @@ async reschedule(claimId, recipientId, newScheduledTime) {
     );
 
     // Notify the donor of the schedule change
+    /*
     try {
         const donorId = listing.donorId;
         const io = require('../../server').io; // not available in service
     } catch {}
-
+    */
     return {
         message: 'Pickup time rescheduled successfully.',
         claim: updated.rows[0],
