@@ -167,12 +167,12 @@ class ListingService {
             );
         }
 
-        // { new: true } returns the updated document
+        // returnDocument: 'after' returns the updated document
         // runValidators: true re-runs schema validation on the updated fields
         const updated = await FoodListing.findByIdAndUpdate(
             id,
             updates,
-            { new: true, runValidators: true }
+            { returnDocument: 'after', runValidators: true }
         );
 
         return updated;
