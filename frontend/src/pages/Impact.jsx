@@ -100,9 +100,8 @@ const PeriodToggle = ({ period, onChange }) => (
 // ═══════════════════════════
 // DONOR VIEW
 // ═══════════════════════════════════════
-const DonorImpact = () => {
+const DonorImpact = ({ period }) => {
     const [data,    setData]    = useState(null);
-    const [period,  setPeriod]  = useState('month');
     const [loading, setLoading] = useState(true);
     const [error,   setError]   = useState('');
 
@@ -225,9 +224,8 @@ const DonorImpact = () => {
 // ═══════════════════════════════════
 // RECIPIENT VIEW
 // ══════════════════════════════════════════════════════════════
-const RecipientImpact = () => {
+const RecipientImpact = ({ period }) => {
     const [data,    setData]    = useState(null);
-    const [period,  setPeriod]  = useState('month');
     const [loading, setLoading] = useState(true);
     const [error,   setError]   = useState('');
 
@@ -348,9 +346,8 @@ const RecipientImpact = () => {
 // ══════════════════════════════════════════════════════════════
 // ADMIN VIEW
 // ═══════════════════════════════════
-const AdminImpact = () => {
+const AdminImpact = ({ period }) => {
     const [data,    setData]    = useState(null);
-    const [period,  setPeriod]  = useState('month');
     const [loading, setLoading] = useState(true);
     const [error,   setError]   = useState('');
 
