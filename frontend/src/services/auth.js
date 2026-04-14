@@ -7,6 +7,8 @@
  */
 
 import api from './api';
+import { connectSocket, disconnectSocket } from './socket';
+
 
 /**
  * register — create a new account
@@ -50,6 +52,8 @@ export const login = async ({ email, password }) => {
     const response = await api.post('/auth/login', { email, password });
     localStorage.setItem('token', response.data.token);
     localStorage.setItem('user', JSON.stringify(response.data.user));
+    // Connect Socket.io and join the user's private room
+    connectSocket(response.data.user.id);
     return response.data;
 };
 
@@ -61,6 +65,7 @@ export const logout = async () => {
     try {
         await api.post('/auth/logout');
     } finally {
+        disconnectSocket();
         localStorage.removeItem('token');
         localStorage.removeItem('user');
     }
