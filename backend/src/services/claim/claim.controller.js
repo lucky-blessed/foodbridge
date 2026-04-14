@@ -31,7 +31,7 @@ class ClaimController {
 
     async create(req, res) {
         try {
-            const { listingId } = req.body;
+            const { listingId, scheduledPickupAt } = req.body;
 
             if (!listingId) {
                 return res.status(400).json({
@@ -49,28 +49,8 @@ class ClaimController {
             const result = await ClaimService.create(
                 req.user.id,
                 listingId,
+                scheduledPickupAt || null
             );
-
-            // ── ClaimConfirm notification → donor ────────────────────────
-            try {
-                const io = req.app.get('io');
-                const { listing } = result;
-                if (listing && listing.donorId) {
-                    NotificationService.create(
-                        io,
-                        listing.donorId,
-                        `Your listing "${listing.title}" has been claimed and is ready for pickup.`,
-                        'ClaimConfirm'
-                    ).catch(err =>
-                        console.error(
-                            '[ClaimController.create] ClaimConfirm notification failed:',
-                            err.message
-                        )
-                    );
-                }
-            } catch (notifError) {
-                console.error('[ClaimController.create] ClaimConfirm dispatch error:', notifError.message);
-            }
 
             // ── Claim email -> donor ───────────────────────────────────────
             // Email the donor to let them know their listing has been claimed
@@ -96,8 +76,33 @@ class ClaimController {
             } catch (emailErr) {
                 console.error('[ClaimController.create] claim email error:', emailErr.message);
             }
-            // ─────────────────────────────────────────────────────────────
 
+
+            // ── ClaimConfirm notification -> donor ────────────────────────
+            try {
+                const io = req.app.get('io');
+                const { listing } = result;
+                if (listing && listing.donorId) {
+                    const scheduleMsg = scheduledPickupAt
+                        ? ` Recipient scheduled pickup for ${new Date(scheduledPickupAt).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' })}.`
+                        : ' No specific pickup time was selected.';
+
+                    NotificationService.create(
+                        io,
+                        listing.donorId,
+                        `Your listing "${listing.title}" has been claimed.${scheduleMsg}`,
+                        'ClaimConfirm'
+                    ).catch(err =>
+                        console.error(
+                            '[ClaimController.create] ClaimConfirm notification failed:',
+                            err.message
+                        )
+                    );
+                }
+            } catch (notifError) {
+                console.error('[ClaimController.create] ClaimConfirm dispatch error:', notifError.message);
+            }
+            
             // ── LimitWarning notification -> recipient ─────────────────────
             try {
                 if (result.remainingClaims === 1) {
@@ -181,6 +186,61 @@ class ClaimController {
             return res.status(500).json({ error: 'Failed to cancel claim. Please try again.' });     
         }
     }
+
+
+    /**
+     * reschedule - PATCH /claims/:id/reschedule
+     * Protected: recipient only
+     */
+    async reschedule(req, res) {
+        try {
+            const { id } = req.params;
+            const { newScheduledTime } = req.body;
+
+            if (!newScheduledTime) {
+                return res.status(400).json({ error: 'newScheduledTime is required.' });
+            }
+
+            const result = await ClaimService.reschedule(id, req.user.id, newScheduledTime);
+
+            // Notify donor of the schedule change
+            try {
+                const io = req.app.get('io');
+                if (result.listing.donorId) {
+                    NotificationService.create(
+                        io,
+                        result.listing.donorId,
+                        `A recipient has rescheduled their pickup of "${result.listing.title}" for ${new Date(newScheduledTime).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' })}.`,
+                        'PickupScheduled'
+                    ).catch(err => console.error('[reschedule] notification failed:', err.message));
+                }
+            } catch (notifErr) {
+                console.error('[reschedule] notification dispatch error:', notifErr.message);
+            }
+
+            return res.status(200).json(result);
+
+        } catch (error) {
+            if (error.message.includes('Reschedule limit')) {
+                return res.status(400).json({ error: error.message });
+            }
+            if (error.message.includes('Too close')) {
+                return res.status(400).json({ error: error.message });
+            }
+            if (error.message.includes('outside the donor')) {
+                return res.status(400).json({ error: error.message });
+            }
+            if (error.message.includes('own claims')) {
+                return res.status(403).json({ error: error.message });
+            }
+            if (error.message.includes('not found')) {
+                return res.status(404).json({ error: error.message });
+            }
+            console.error('[ClaimController.reschedule]', error);
+            return res.status(500).json({ error: 'Failed to reschedule pickup.' });
+        }
+    }
+
 
     /**
      * getMyHistory - GET /claims/me

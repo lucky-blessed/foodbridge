@@ -12,8 +12,10 @@ import api from './api';
  * Calls POST /claims
  */
 
-export const claimListing = async (listingId) => {
-    const response = await api.post('claims', { listingId });
+export const claimListing = async (listingId, scheduledPickupAt = null) => {
+    const body = { listingId };
+    if (scheduledPickupAt) body.scheduledPickupAt = scheduledPickupAt;
+    const response = await api.post('/claims', body);
     return response.data;
 };
 
@@ -44,5 +46,10 @@ export const getMyClaims = async () => {
 
 export const getClaimCount = async () => {
     const response = await api.get('/claims/count');
+    return response.data;
+};
+
+export const rescheduleClaim = async (claimId, newScheduledTime) => {
+    const response = await api.patch(`/claims/${claimId}/reschedule`, { newScheduledTime });
     return response.data;
 };
