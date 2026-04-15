@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, Clock, MapPin, AlertTriangle, XCircle } from 'lucide-react';
-import { getClaimCount, getMyClaims, cancelClaim } from '../services/claims';
+import { getClaimCount, getMyClaims, cancelClaim, rescheduleClaim } from '../services/claims';
 import Sidebar from '../components/Sidebar';
+
 
 const ClaimLimit = () => {
   const [countData,  setCountData]  = useState({ count:0, limit:3, remaining:3, resetsAt:null });
@@ -9,6 +10,11 @@ const ClaimLimit = () => {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState('');
   const [cancelling, setCancelling] = useState(null);
+
+  const [rescheduling,    setRescheduling]    = useState(null); // claimId being rescheduled
+  const [rescheduleModal, setRescheduleModal] = useState(null); // { claim, listing }
+  const [newPickupTime,   setNewPickupTime]   = useState('');
+  const [rescheduleError, setRescheduleError] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -42,6 +48,22 @@ const ClaimLimit = () => {
     } finally {
       setCancelling(null);
     }
+  };
+
+  const handleReschedule = async () => {
+      if (!newPickupTime || !rescheduleModal) return;
+      setRescheduling(rescheduleModal.claim.id);
+      setRescheduleError('');
+      try {
+          await rescheduleClaim(rescheduleModal.claim.id, new Date(newPickupTime).toISOString());
+          setRescheduleModal(null);
+          setNewPickupTime('');
+          await fetchData();
+      } catch (err) {
+          setRescheduleError(err.response?.data?.error || 'Failed to reschedule.');
+      } finally {
+          setRescheduling(null);
+      }
   };
 
   const { count, limit, remaining, resetsAt } = countData;
@@ -182,46 +204,124 @@ const ClaimLimit = () => {
                   No claims yet. Visit Discover to find food near you.
                 </div>
               )}
-
               {claims.map((claim) => (
-                <div key={claim.id}
-                  className="bg-white border border-slate-200 p-4 rounded-lg flex justify-between items-start">
-                  <div className="flex items-start gap-3">
-                    {statusIcon[claim.status] || <Clock size={20} />}
-                    <div>
-                      <p className="text-xs text-slate-500">
-                        {new Date(claim.claimed_at).toLocaleDateString()}
-                      </p>
-                      <p className="font-bold text-sm">
-                        {claim.listing?.title || `Listing ${claim.listing_id}`}
-                      </p>
-                      {claim.listing?.category && (
-                        <p className="text-xs text-slate-400 capitalize">
-                          {claim.listing.category}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                  <div key={claim.id}
+                      className="bg-white border border-slate-200 p-4 rounded-lg flex justify-between items-start">
+                      <div className="flex items-start gap-3">
+                          {statusIcon[claim.status] || <Clock size={20} />}
+                          <div>
+                              <p className="text-xs text-slate-500">
+                                  {new Date(claim.claimed_at).toLocaleDateString()}
+                              </p>
+                              <p className="font-bold text-sm">
+                                  {claim.listing?.title || `Listing ${claim.listing_id}`}
+                              </p>
+                              {claim.listing?.category && (
+                                  <p className="text-xs text-slate-400 capitalize">
+                                      {claim.listing.category}
+                                  </p>
+                              )}
+                              {/* Scheduled pickup time */}
+                              {claim.scheduled_pickup_at && (
+                                  <p className="text-xs text-emerald-700 font-semibold mt-1">
+                                      📅 Pickup: {new Date(claim.scheduled_pickup_at).toLocaleString('en-CA', {
+                                          dateStyle: 'medium', timeStyle: 'short'
+                                      })}
+                                  </p>
+                              )}
+                              {/* Reschedule count */}
+                              {claim.status === 'active' && claim.reschedule_count > 0 && (
+                                  <p className="text-xs text-slate-400 mt-0.5">
+                                      Rescheduled {claim.reschedule_count}/2 times
+                                  </p>
+                              )}
+                          </div>
+                      </div>
 
-                  <div className="flex flex-col items-end gap-2">
-                    <span className={`text-xs font-semibold capitalize ${statusColor[claim.status] || 'text-slate-500'}`}>
-                      {claim.status}
-                    </span>
-                    {claim.status === 'active' && (
-                      <button
-                        onClick={() => handleCancel(claim.id)}
-                        disabled={cancelling === claim.id}
-                        className="text-xs text-red-500 hover:text-red-700 font-semibold disabled:opacity-50"
-                      >
-                        {cancelling === claim.id ? 'Cancelling...' : 'Cancel'}
-                      </button>
-                    )}
+                      <div className="flex flex-col items-end gap-2">
+                          <span className={`text-xs font-semibold capitalize ${statusColor[claim.status] || 'text-slate-500'}`}>
+                              {claim.status}
+                          </span>
+                          {claim.status === 'active' && (
+                              <>
+                                  {/* Reschedule button */}
+                                  {claim.status === 'active' && claim.reschedule_count < 2 && (
+                                      <button
+                                          onClick={() => {
+                                              setRescheduleModal({ claim });
+                                              setNewPickupTime('');
+                                              setRescheduleError('');
+                                          }}
+                                          className="text-xs text-emerald-600 hover:text-emerald-800 font-semibold">
+                                          Reschedule
+                                      </button>
+                                  )}
+                                  <button
+                                      onClick={() => handleCancel(claim.id)}
+                                      disabled={cancelling === claim.id}
+                                      className="text-xs text-red-500 hover:text-red-700 font-semibold disabled:opacity-50">
+                                      {cancelling === claim.id ? 'Cancelling...' : 'Cancel'}
+                                  </button>
+                              </>
+                          )}
+                      </div>
                   </div>
-                </div>
               ))}
             </div>
 
           </div>
+        )}
+        {/* ── Reschedule Modal ── */}
+        {rescheduleModal && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                    <h3 className="text-lg font-bold text-emerald-900 mb-1">Reschedule Pickup</h3>
+                    <p className="text-sm text-slate-500 mb-4">
+                        {rescheduleModal.claim.listing?.title || 'Your claim'} —&nbsp;
+                        {2 - rescheduleModal.claim.reschedule_count} reschedule
+                        {2 - rescheduleModal.claim.reschedule_count === 1 ? '' : 's'} remaining
+                    </p>
+
+                    {/* Current scheduled time */}
+                    {rescheduleModal.claim.scheduled_pickup_at && (
+                        <div className="bg-slate-50 rounded-lg p-3 mb-4 text-sm text-slate-600">
+                            <span className="font-semibold">Current time: </span>
+                            {new Date(rescheduleModal.claim.scheduled_pickup_at).toLocaleString('en-CA', {
+                                dateStyle: 'medium', timeStyle: 'short'
+                            })}
+                        </div>
+                    )}
+
+                    {/* New time picker */}
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        New Pickup Time
+                    </label>
+                    <input
+                        type="datetime-local"
+                        value={newPickupTime}
+                        onChange={e => setNewPickupTime(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+
+                    {rescheduleError && (
+                        <p className="text-red-500 text-xs mb-3">{rescheduleError}</p>
+                    )}
+
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => { setRescheduleModal(null); setRescheduleError(''); }}
+                            className="flex-1 border border-slate-200 rounded-xl py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleReschedule}
+                            disabled={!newPickupTime || rescheduling === rescheduleModal.claim.id}
+                            className="flex-1 bg-emerald-900 text-white rounded-xl py-2 text-sm font-semibold hover:bg-emerald-800 disabled:opacity-50">
+                            {rescheduling === rescheduleModal.claim.id ? 'Saving...' : 'Confirm'}
+                        </button>
+                    </div>
+                </div>
+            </div>
         )}
       </main>
     </div>

@@ -10,6 +10,8 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logout, getCurrentUser } from '../services/auth';
 import { getNotifications } from '../services/api';
+import { onSocket } from '../services/socket';
+import { connectSocket } from '../services/socket';
 
 const Sidebar = () => {
   const location = useLocation();
@@ -25,17 +27,29 @@ const Sidebar = () => {
     if (!user) return;
 
     const fetchUnread = async () => {
-      try {
-        const { data } = await getNotifications({ limit: 30 });
-        setUnreadCount(data.unreadCount);
-      } catch {
-        // Non-critical — badge simply won't update if this fails
-      }
+        try {
+            const { data } = await getNotifications({ limit: 30 });
+            setUnreadCount(data.unreadCount);
+        } catch {
+            // Non-critical
+        }
     };
 
     fetchUnread();
+
+    // Reconnect socket if page was refreshed (token still valid but socket gone)
+    connectSocket(user.id);
+
+    // Real-time push — increment badge instantly when notification arrives
+    const unsubscribe = onSocket('notification', () => {
+        setUnreadCount(prev => prev + 1);
+    });
+
     const interval = setInterval(fetchUnread, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+    };
   }, []);
 
   const donorItems = [

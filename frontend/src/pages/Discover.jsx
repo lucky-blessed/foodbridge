@@ -29,6 +29,8 @@ const Discover = () => {
   const [selected,     setSelected]     = useState(null);
   const [claiming,     setClaiming]     = useState(null);
   const [lastClaimed,  setLastClaimed]  = useState(null); // Stores { pin, title }
+  const [scheduleModal,      setScheduleModal]      = useState(null); // { listing }
+  const [scheduledPickupAt,  setScheduledPickupAt]  = useState('');
   const [view,         setView]         = useState('list');  // 'list' or 'map'
   const [mapRef,       setMapRef]       = useState(null);
 
@@ -91,16 +93,20 @@ const Discover = () => {
   };
 
  // handleClaim — PIN comes from server response
-  const handleClaim = async (listingId) => {
+  const handleClaim = async (listingId, scheduled = null) => {
     setClaiming(listingId);
     try {
-        const result = await claimListing(listingId);
+        const response = await claimListing(listingId, scheduled);
         const claimedItem = listings.find(l => l._id === listingId);
-        setLastClaimed({ pin: result.pin, title: claimedItem?.title });
+        setLastClaimed({ pin: response.pin, title: claimedItem?.title });
+        setListings(prev => prev.filter(l => l._id !== listingId));
+        setSelected(null);
+        setScheduleModal(null);
+        setScheduledPickupAt('');
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to claim listing.');
+        alert(err.response?.data?.error || 'Failed to claim listing.');
     } finally {
-      setClaiming(null);
+        setClaiming(null);
     }
   };
 
@@ -174,7 +180,7 @@ const Discover = () => {
           )}
 
           <button
-            onClick={() => handleClaim(item._id)}
+            onClick={() => setScheduleModal({ listing: item })}
             disabled={claiming === item._id}
             className="w-full mt-3 bg-white border-2 border-fb-coral text-fb-coral
                       font-bold py-2 rounded-xl hover:bg-fb-coral hover:text-white
@@ -189,6 +195,60 @@ const Discover = () => {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
+
+      {/* ── Schedule Pickup Modal ── */}
+      {scheduleModal && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                  <h3 className="text-lg font-bold text-fb-dark mb-1">Claim This Item</h3>
+                  <p className="font-semibold text-fb-dark mb-1">
+                      {scheduleModal.listing.title}
+                  </p>
+                  <p className="text-xs text-gray-500 mb-4">
+                      Pickup window: {new Date(scheduleModal.listing.pickupStart).toLocaleString('en-CA', {
+                          dateStyle: 'medium', timeStyle: 'short'
+                      })} – {new Date(scheduleModal.listing.pickupEnd).toLocaleString('en-CA', {
+                          dateStyle: 'medium', timeStyle: 'short'
+                      })}
+                  </p>
+
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                      Schedule Pickup Time (optional)
+                  </label>
+                  <input
+                      type="datetime-local"
+                      value={scheduledPickupAt}
+                      min={new Date(scheduleModal.listing.pickupStart).toISOString().slice(0,16)}
+                      max={new Date(scheduleModal.listing.pickupEnd).toISOString().slice(0,16)}
+                      onChange={e => setScheduledPickupAt(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4
+                                focus:outline-none focus:ring-2 focus:ring-fb-mint"
+                  />
+                  <p className="text-xs text-gray-400 mb-4">
+                      Leave blank to claim without a scheduled time.
+                  </p>
+
+                  <div className="flex gap-3">
+                      <button
+                          onClick={() => { setScheduleModal(null); setScheduledPickupAt(''); }}
+                          className="flex-1 border border-gray-200 rounded-xl py-2 text-sm
+                                    font-semibold text-gray-600 hover:bg-gray-50">
+                          Cancel
+                      </button>
+                      <button
+                          onClick={() => handleClaim(
+                              scheduleModal.listing._id,
+                              scheduledPickupAt ? new Date(scheduledPickupAt).toISOString() : null
+                          )}
+                          disabled={claiming === scheduleModal.listing._id}
+                          className="flex-1 bg-fb-dark text-white rounded-xl py-2 text-sm
+                                    font-semibold hover:bg-fb-light disabled:opacity-50">
+                          {claiming === scheduleModal.listing._id ? 'Claiming...' : 'Confirm Claim'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* PIN SUCCESS MODAL */}
       {lastClaimed && (
@@ -348,15 +408,28 @@ const Discover = () => {
                     position={{ lat: selected.location.coordinates[1], lng: selected.location.coordinates[0] }}
                     onCloseClick={() => setSelected(null)}
                   >
-                    <div className="p-1 w-56">
-                      <h4 className="font-bold text-fb-dark text-sm">{selected.title}</h4>
-                      <button
-                        onClick={() => handleClaim(selected._id)}
-                        disabled={claiming === selected._id}
-                        style={{ width: '100%', marginTop: '10px', backgroundColor: '#40916C', color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '8px', borderRadius: '8px', border: 'none' }}
-                      >
-                        {claiming === selected._id ? 'Claiming...' : 'Claim This Item'}
-                      </button>
+                    <div className="p-1 w-64">
+                        {selected.photoUrl && (
+                        <img src={selected.photoUrl} alt={selected.title}
+                            className="w-full h-28 object-cover rounded-lg mb-2" />
+                        )}
+                        <h4 className="font-bold text-fb-dark text-sm mb-1">{selected.title}</h4>
+                        <p className="text-xs text-gray-500">👤 {selected.donorName}</p>
+                        <p className="text-xs text-gray-500">📦 {selected.quantity} {selected.unit}</p>
+                        <p className="text-xs text-gray-500 capitalize">🏷️ {selected.category}</p>
+                        {selected.location?.address && (
+                            <p className="text-xs text-gray-500">📍 {selected.location.address}</p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                            🕐 Pickup: {new Date(selected.pickupStart).toLocaleDateString()} – {new Date(selected.pickupEnd).toLocaleDateString()}
+                        </p>
+                        <button
+                            onClick={() => setScheduleModal({ listing: selected })}
+                            disabled={claiming === selected._id}
+                            style={{ width: '100%', marginTop: '10px', backgroundColor: '#40916C', color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '8px', borderRadius: '8px', border: 'none' }}
+                        >
+                            {claiming === selected._id ? 'Claiming...' : 'Claim This Item'}
+                        </button>
                     </div>
                   </InfoWindow>
                 )}
